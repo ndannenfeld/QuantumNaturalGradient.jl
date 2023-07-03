@@ -19,7 +19,7 @@ include("misc/misc.jl")
 
 include("solver/solver.jl")
 
-include("optimize.jl")
+include("evolve/evolve.jl")
 include("remove_params.jl")
 
 end # module SRMPS

@@ -12,7 +12,7 @@ function (solver::EigenSolver)(M::Matrix, v::Vector)
     eig = eigen(Hermitian(M))
     max_val = eig.values[end]
     cond = eig.values ./ max_val
-    condition_number = std(log.(cond))
+    condition_number = std(log.(abs.(cond)))
 
     Nz = sum(cond .< solver.revcut)
 
@@ -24,9 +24,9 @@ function (solver::EigenSolver)(M::Matrix, v::Vector)
         p = Nz / length(cond) * 100
         #println(cond)
         if Nz > 0
-            @info "EigenSolver: Zero eigenvalues: $Nz - $(round(p, digits=1))%  - cn: $condition_number"
+            @info "EigenSolver: Null space size: $Nz - $(round(p, digits=1))%  - cn: $condition_number"
         else
-            @info "EigenSolver: No zero eigenvalues - cn: $condition_number"
+            @info "EigenSolver: No null space - cn: $condition_number"
         end
         flush(stdout)
         flush(stderr)

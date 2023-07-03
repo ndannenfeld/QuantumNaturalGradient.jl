@@ -1,10 +1,9 @@
-mutable struct ReduceSolver <: AbstractSolver
+mutable struct ReduceSolver <: AbstractCompositeSolver
     solver::AbstractSolver
     reduction_factor::Number
     reduction_method::Symbol
     ReduceSolver(solver::AbstractSolver, reduction_factor::Number=2, reduction_method::Symbol=:unitary_rrange) = new(solver, reduction_factor, reduction_method)
     #ReduceSolver(solver::AbstractSolver, reduced_size::Number=2, reduction_method::Symbol=:unitary_rrange) = new(solver, reduction_factor, reduction_method)
-
 end
 
 function (solver::ReduceSolver)(sr::StochasticReconfiguration; kwargs...)
@@ -24,7 +23,7 @@ function (solver::ReduceSolver)(sr::StochasticReconfiguration; kwargs...)
         GT = U * sr.GT.data
         GTd = GT * GT'
         
-        θdot_raw = -solver.solver(GTd, U * Ekms; kwargs...)
+        θdot_raw = -solver(GTd, U * Ekms; kwargs...)
         sr.θdot = GT' * θdot_raw
 
     elseif solver.reduction_method === :sum
@@ -44,10 +43,10 @@ function (solver::ReduceSolver)(sr::StochasticReconfiguration; kwargs...)
         Ekms = reshape(Ekms[1:sample_nr_eff], new_sample_nr, reduction_factor)
         Ekms = mean(Ekms, dims=2)[:, 1]
         
-        θdot_raw = -solver.solver(GTd, Ekms; kwargs...)
+        θdot_raw = -solver(GTd, Ekms; kwargs...)
         sr.θdot = GT' * θdot_raw
     else
-        error("Unknown reduction method: $(solver.reduction_method) (should be :unitary or :sum)")
+        error("Unknown reduction method: $(solver.reduction_method) (should be :unitary_rrange, :unitary or :sum)")
     end
 
     tdvp_error!(sr)

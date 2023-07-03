@@ -26,6 +26,7 @@ mutable struct StochasticReconfiguration{T <: Number, T2 <: Number, Tint <: Inte
     samples::Vector{Vector{Tint}}
     GT::SparseGeometricTensor{T}
     Es::EnergySummary
+    logψσs::Vector{Complex{Float64}}
     grad::Vector{T2}
     θdot::Union{Vector{T2}, Nothing}
     tdvp_error::Union{Float64, Nothing}
@@ -34,17 +35,30 @@ end
 Base.length(sr::StochasticReconfiguration) = length(sr.Es)
 Base.show(io::IO, sr::StochasticReconfiguration) = print(io, "StochasticReconfiguration($(sr.Es), tdvp_error=$(sr.tdvp_error))")
 
+
+function get_θdot(sr::StochasticReconfiguration; θtype=ComplexF64)
+    if eltype(sr.θdot) <: Real
+        return sr.θdot
+    else
+        if θtype <: Real
+            return real.(sr.θdot)
+        else
+            return sr.θdot
+        end
+    end
+end
+
 function centered(Oks::Vector{Vector{T}}) where T <: Number
     m = mean(Oks)
     return [ok .- m for ok in Oks]
 end
 
 function StochasticReconfiguration(θ::Vector, Oks_and_Eks; sample_nr=100, kwargs...)
-    Oks, Eks, samples = Oks_and_Eks(θ, sample_nr)
-    return StochasticReconfiguration(Oks, Eks, samples; kwargs...)
+    Oks, Eks, logψσs, samples = Oks_and_Eks(θ, sample_nr)
+    return StochasticReconfiguration(Oks, Eks, logψσs, samples; kwargs...)
 end
 
-function StochasticReconfiguration(Oks, Eks::Vector, samples::Vector; solver=nothing, discard_outliers=0.)
+function StochasticReconfiguration(Oks, Eks::Vector, logψσs::Vector, samples::Vector; solver=nothing, discard_outliers=0.)
     Es = EnergySummary(Eks)
     
     if discard_outliers > 0
@@ -61,7 +75,7 @@ function StochasticReconfiguration(Oks, Eks::Vector, samples::Vector; solver=not
     GT = SparseGeometricTensor(Oks)
     grad = 2 * GT.data' * Ekms ./ length(Es)
 
-    sr = StochasticReconfiguration(samples, GT, Es, grad, nothing, nothing)
+    sr = StochasticReconfiguration(samples, GT, Es, logψσs, grad, nothing, nothing)
 
     if solver !== nothing
         solver(sr)

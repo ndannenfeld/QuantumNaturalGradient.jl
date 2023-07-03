@@ -1,17 +1,27 @@
-struct EnergySummary
-    data::Vector{Float64}
-    mean::Float64
+struct EnergySummary{T <: Number}
+    data::Vector{T}
+    mean::T
     var::Float64
     std_of_var::Float64
 end
 
 EnergySummary(ψ::MPS, H::MPO; sample_nr=1000) = EnergySummary([Ek(ψ, H) for _ in 1:sample_nr])
 
+function EnergySummary(Eks::Vector{Complex{Float64}})
+    if any(imag.(Eks) .> 1e-10)
+        mean_ = mean(Eks)
+        Eks_c = real.(Eks .- mean_)
+        std_of_var = std(Eks_c .^ 2)
+        return EnergySummary(Eks, mean_, var(Eks_c), std_of_var)
+    end
+    return EnergySummary(real.(Eks))
+end
+
 function EnergySummary(Eks::Vector{Float64})
     mean_ = mean(Eks)
-    Eks_c = Eks .- mean_
+    Eks_c = real.(Eks .- mean_)
     std_of_var = std(Eks_c .^ 2)
-    return EnergySummary(Eks, mean_, var(Eks), std_of_var)
+    return EnergySummary(Eks, mean_, var(Eks_c), std_of_var)
 end
 
 Statistics.mean(Es::EnergySummary) = Es.mean

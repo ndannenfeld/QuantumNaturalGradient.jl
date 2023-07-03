@@ -5,6 +5,7 @@ end
 
 
 function destructure(ψ::MPS; get_destructor=false)
+    
     xs = [ψi.tensor.storage for ψi in ψ]
     if get_destructor
         return vcat(vec.(xs)...), p -> _restructure(ψ, p), p -> destructure(p, ψ)

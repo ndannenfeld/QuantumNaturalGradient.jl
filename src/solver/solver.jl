@@ -1,6 +1,6 @@
 abstract type AbstractSolver end
 
-function solve_S(solver::AbstractSolver, GT::SparseGeometricTensor, Es::EnergySummary, grad_half::Vector; kwargs...)
+function solve_S(solver::AbstractSolver, GT::SparseGeometricTensor, grad_half::Vector; kwargs...)
     GTd = dense_S(GT)
     θdot = -solver(GTd, grad_half; kwargs...)
     
@@ -19,16 +19,22 @@ function solve_T(solver::AbstractSolver, GT::SparseGeometricTensor, Es::EnergySu
 end
 
 function (solver::AbstractSolver)(sr::StochasticReconfiguration; method=:auto, kwargs...)
-    #sample_nr = 
     if method === :T || (method === :auto && size(sr.GT, 1) < size(sr.GT, 2))
         sr.θdot = solve_T(solver, sr.GT, sr.Es; kwargs...)
     else
-        sr.θdot = solve_S(solver, sr.GT, sr.Es, sr.grad ./ 2; kwargs...)
+        sr.θdot = solve_S(solver, sr.GT, sr.grad ./ 2; kwargs...)
     end
     
     tdvp_error!(sr)
     return sr
 end
+
+abstract type AbstractCompositeSolver <: AbstractSolver end
+
+function (solver::AbstractCompositeSolver)(M::Matrix, v::Vector)
+    return solver.solver(M, v)
+end
+
 
 include("eigen_solver.jl")
 include("reduce_solver.jl")
