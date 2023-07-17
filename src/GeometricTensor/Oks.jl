@@ -188,7 +188,9 @@ function generate_Oks_and_Eks_parallel(construct_mps, H::MPO; pull_in_advance=fa
                 SRMPS.Ok_and_Ek(ψ, loglike, Main.H, sample_, pull; θ_complex=Main.θ_complex, Main.kwargs...), sample_
             end
         end
-        #warning("Oks_and_Eks_parallel: toverify")
+
+        @everywhere_async workers() Base.GC.gc()
+        
         Oks = [Oks_Eks[i][1][1] for i in 1:length(Oks_Eks)]
         Eks = [Oks_Eks[i][1][2] for i in 1:length(Oks_Eks)]
         logψs = [Oks_Eks[i][1][3] for i in 1:length(Oks_Eks)]
