@@ -12,6 +12,7 @@ using Statistics
 using PastaQ: productstate
 using Random
 
+include("distributed_extension.jl")
 include("GeometricTensor/GeometricTensor.jl")
 include("MPS/MPS.jl")
 include("misc/misc.jl")
@@ -21,5 +22,7 @@ include("solver/solver.jl")
 
 include("evolve/evolve.jl")
 include("remove_params.jl")
+include("init_params.jl")
+
 
 end # module SRMPS
