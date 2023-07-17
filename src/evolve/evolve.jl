@@ -1,4 +1,14 @@
 abstract type AbstractIntegrator end
+abstract type AbstractCompositeIntegrator <: AbstractIntegrator end
+abstract type AbstractShedule end
+
+function Base.getproperty(integrator::AbstractCompositeIntegrator, property::Symbol)
+    if property === :lr
+        return getproperty(integrator.integrator, property)
+    else
+        return getfield(integrator, property)
+    end
+end
 
 struct Euler <: AbstractIntegrator
     lr::Float64
@@ -13,6 +23,7 @@ end
 include("heun.jl")
 include("averaging.jl")
 include("noise.jl")
+include("decay.jl")
 
 function evolve(construct_mps, θ::T, H::MPO;
     integrator=Euler(0.1), lr=nothing, solver=EigenSolver(1e-6),
