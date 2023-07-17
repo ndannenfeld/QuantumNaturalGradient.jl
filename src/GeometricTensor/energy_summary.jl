@@ -37,7 +37,7 @@ centered(Es::EnergySummary) = Es.data .- mean(Es)
 function Base.show(io::IO, Es::EnergySummary)
     error = energy_error(Es)
     digits = Int(min(ceil(-log10(error)), 10)) + 1
-    E_str = "E = $(round(Es.mean, digits=digits)) ± $(round(error, digits=digits))"
+    E_str = "E = $(round(real(Es.mean), digits=digits)) ± $(round(error, digits=digits))"
 
     error2 = energy_var_error(Es)
     digits = Int(min(ceil(-log10(error2)), 10)) + 1
