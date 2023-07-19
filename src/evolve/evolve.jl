@@ -1,28 +1,33 @@
 abstract type AbstractIntegrator end
 abstract type AbstractCompositeIntegrator <: AbstractIntegrator end
-abstract type AbstractShedule end
+abstract type AbstractSchedule end
 
 function Base.getproperty(integrator::AbstractCompositeIntegrator, property::Symbol)
-    if property === :lr
+    if property === :lr || property === :step
         return getproperty(integrator.integrator, property)
     else
         return getfield(integrator, property)
     end
 end
 
-struct Euler <: AbstractIntegrator
+mutable struct Euler <: AbstractIntegrator
     lr::Float64
+    step::Integer
+    function Euler(lr::Real; step::Integer=0)
+        return new(lr, step)
+    end
 end
 
 function (integrator::Euler)(θ::AbstractVector, Oks_and_Eks_; kwargs...)
     sr = StochasticReconfiguration(θ, Oks_and_Eks_; kwargs...)
     θ = θ + integrator.lr * get_θdot(sr; θtype=eltype(θ))
+    integrator.step += 1
     return θ, sr
 end
 
 include("heun.jl")
 include("averaging.jl")
-include("noise.jl")
+include("noise/noise.jl")
 include("decay.jl")
 
 function evolve(construct_mps, θ::T, H::MPO;
@@ -32,7 +37,7 @@ function evolve(construct_mps, θ::T, H::MPO;
     copy=true, sample_nr=1000, parallel=false,
     verbosity=0, save_params=false, save_rng=false,
     save_sr=false,
-    niter_start=1, history_old=nothing,
+    misc_restart=nothing,
     discard_outliers=0.,
     transform_θ=x->x, transform_sr=(args...) -> args,
     kwargs...
@@ -55,8 +60,27 @@ function evolve(construct_mps, θ::T, H::MPO;
     end
 
     history = Matrix{Float64}(undef, maxiter, 7)
-    if history_old !== nothing
+
+    # Restarting from a previous run
+    niter_start = 1
+    if misc_restart !== nothing
+        history_old = misc_restart["history"]
         history[1:size(history_old, 1), :] = history_old
+
+        if save_params
+            history_params_old = misc_restart["history_params"]
+            history_params[1:size(history_params_old, 1), :] = history_params_old
+        end
+
+        if save_rng
+            history_rng_old = misc_restart["history_rng"]
+            history_rng[1:length(history_rng_old)] = history_rng_old
+        end
+
+        niter_start = misc_restart["niter"] + 1
+        if verbosity > 0
+            @info "evolve: Restarting from niter = $niter_start"
+        end
     end
 
 

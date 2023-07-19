@@ -1,33 +1,35 @@
 
-abstract type AbstractTemperatureShedule  <: AbstractShedule end
+abstract type AbstractTemperatureSchedule  <: AbstractSchedule end
 
 VecNothing = Union{Vector{<:Real}, Nothing}
 mutable struct LangevinNoise <: AbstractCompositeIntegrator
     integrator::AbstractIntegrator
-    T_shedule::AbstractTemperatureShedule
+    T_schedule::AbstractTemperatureSchedule
     θ_std::VecNothing
     norm_preserving::Bool
     L2_lr::Union{Float64, Nothing}
     verbose::Bool
     history::VecNothing
+    history_view
 end
 
-function LangevinNoise(integrator::AbstractIntegrator, T_shedule::AbstractTemperatureShedule;
+function LangevinNoise(integrator::AbstractIntegrator, T_schedule::AbstractTemperatureSchedule;
     θ_std::VecNothing=nothing, norm_preserving::Bool=false, L2_lr=nothing,
     verbose::Bool=false, save_history=false)
 
     history = save_history ? Float64[] : nothing
+    history_view = save_history ? reshape(view(history, :), 2, 0) : nothing
 
-    return LangevinNoise(integrator, T_shedule, θ_std, norm_preserving, L2_lr, verbose, history)
+    return LangevinNoise(integrator, T_schedule, θ_std, norm_preserving, L2_lr, verbose, history, history_view)
 end
 
 function LangevinNoise(integrator::AbstractIntegrator, T::Real; steps::Integer=1, final_T::Float64=0.9, kwargs...)
-    T_shedule = TemperatureExpDecay(T, final_T, steps)
-    return LangevinNoise(integrator, T_shedule; kwargs...)
+    T_schedule = TemperatureExpDecay(T, final_T, steps)
+    return LangevinNoise(integrator, T_schedule; kwargs...)
 end
 
 function (integrator::LangevinNoise)(θ::AbstractVector, Oks_and_Eks_; kwargs...)
-    T = integrator.T_shedule.T
+    T = integrator.T_schedule.T
     lr = integrator.lr
 
     θ_old = copy(θ)
@@ -51,28 +53,33 @@ function (integrator::LangevinNoise)(θ::AbstractVector, Oks_and_Eks_; kwargs...
         θn -= θ .* f
     end
 
+    noise_grad_ratio = norm(dθ) ./ sqrt(length(θ))
+    if integrator.L2_lr !== nothing
+        f = integrator.L2_lr * lr * T
+        noise_grad_ratio = norm(dθ) / norm(θ) / f
+    end
+
     if integrator.norm_preserving
         θn = θn .* (norm(θ) / norm(θn))
     end
 
-    noise_grad_ratio = norm(dθ) ./ sqrt(length(θ))
+    
     if integrator.history !== nothing
-        push!(integrator.history, noise_grad_ratio)
+        append!(integrator.history, noise_grad_ratio, T)
+        integrator.history_view = reshape(view(integrator.history, :), 2, length(integrator.history) ÷ 2)
     end
 
     if integrator.verbose
-        if integrator.L2_lr !== nothing
-            f = integrator.L2_lr * lr * T
-            noise_grad_ratio = norm(dθ) / norm(θ) / f
-        end
         println("T = ", T, ", noise_grad_ratio = ", noise_grad_ratio)
     end
     
-    integrator.T_shedule(integrator, θ, noise_grad_ratio) # update T
+    integrator.T_schedule(integrator, θ, noise_grad_ratio) # update T
     return θn, sr
 end
 
-mutable struct TemperatureExpDecay <: AbstractTemperatureShedule
+
+
+mutable struct TemperatureExpDecay <: AbstractTemperatureSchedule
     T::Real
     T_decay_factor::Real
     function TemperatureExpDecay(T::Real, T_decay_factor::Real)
@@ -90,3 +97,5 @@ end
 function (schedule::TemperatureExpDecay)(integrator::LangevinNoise, θ::AbstractVector, noise_grad_ratio::Real)
     schedule.T *= schedule.T_decay_factor
 end
+
+include("adaptive.jl")
