@@ -8,14 +8,15 @@ function search_init_params(construct_mps, θ, H; gains= 10 .^ collect(range(-0.
         sr = StochasticReconfiguration(θ .* gain, construct_mps, H; solver, sample_nr=sample_nr, kwargs...)
         push!(null_space_sizes, solver.info[:Nz])
         if verbose
-            @info "Null space size: $(solver.info[:Nz]) - gain: $gain"
+            norm_ = norm(sr.θdot)
+            @info "Null space size: $(solver.info[:Nz]) - gain: $gain - norm: $norm_"
         end
     end
     arg = argmin(null_space_sizes)
     null_space_size = null_space_sizes[arg]
     gain = gains[arg]
     if verbose
-        @info "Best Null space size: $null_space_size - $(round(null_space_size/length(θ)*100))%  - gain: $gain - worse null space size: $(maximum(null_space_sizes))"
+        @info "Best null space size: $null_space_size - $(round(Int, null_space_size/length(θ)*100))%  - gain: $gain - worse null space size: $(maximum(null_space_sizes))"
     end
     
     if get_gain
