@@ -34,3 +34,23 @@ macro everywhere_async(procs, ex)
         end
     end
 end
+
+macro addprocs_and_everywhere(num_procs, ex, max_add_num_procs=numprocs, verbose=false)
+    return quote
+        num_procs = $(esc(num_procs))
+        max_add_num_procs = $(esc(max_add_num_procs))
+        @eval $ex
+        while length(procs()) < num_procs
+            lw = length(procs())
+            
+            ad = min(num_procs - lw, max_add_num_procs)
+            added_workers = addprocs(ad)
+            if $verbose
+                @time @everywhere added_workers @eval $ex
+                println("Total: ", length(procs()) , " - Added ", ad, " procs")
+            else
+                @everywhere added_workers @eval $ex
+            end
+        end
+    end   
+end
