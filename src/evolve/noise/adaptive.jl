@@ -27,7 +27,7 @@ mutable struct AdaptiveFindInitalTemperature <: AbstractCompositeTemperatureSche
     end
 end
 
-function (schedule::AdaptiveFindInitalTemperature)(integrator::LangevinNoise, θ::AbstractVector, noise_grad_ratio::Real)
+function (schedule::AdaptiveFindInitalTemperature)(integrator::LangevinNoiseIntegrator, θ::AbstractVector, noise_grad_ratio::Real)
     
     if schedule.number_of_steps <= length(schedule.estimate_list)
         schedule.schedule(integrator, θ, noise_grad_ratio)
@@ -48,7 +48,7 @@ mutable struct ZeroTemperatureSchedule <: AbstractCompositeTemperatureSchedule
     end
 end
 
-function (schedule::ZeroTemperatureSchedule)(integrator::LangevinNoise, θ::AbstractVector, noise_grad_ratio::Real)
+function (schedule::ZeroTemperatureSchedule)(integrator::LangevinNoiseIntegrator, θ::AbstractVector, noise_grad_ratio::Real)
     if schedule.number_of_steps >= integrator.step
         schedule.schedule(integrator, θ, noise_grad_ratio)
     else

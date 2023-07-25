@@ -46,7 +46,7 @@ macro addprocs_and_everywhere(num_procs, ex, max_add_num_procs=numprocs, verbose
             ad = min(num_procs - lw, max_add_num_procs)
             added_workers = addprocs(ad)
             if $verbose
-                @time @everywhere added_workers @eval $ex
+                @time @everywhere added_workers $ex
                 println("Total: ", length(procs()) , " - Added ", ad, " procs")
             else
                 @everywhere added_workers @eval $ex

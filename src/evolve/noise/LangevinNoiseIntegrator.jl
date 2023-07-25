@@ -97,5 +97,3 @@ end
 function (schedule::TemperatureExpDecay)(integrator::LangevinNoiseIntegrator, θ::AbstractVector, noise_grad_ratio::Real)
     schedule.T *= schedule.T_decay_factor
 end
-
-include("adaptive.jl")
