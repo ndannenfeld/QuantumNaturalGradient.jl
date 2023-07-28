@@ -19,7 +19,7 @@ mutable struct Euler <: AbstractIntegrator
 end
 
 function (integrator::Euler)(θ::AbstractVector, Oks_and_Eks_; kwargs...)
-    sr = StochasticReconfiguration(θ, Oks_and_Eks_; kwargs...)
+    sr = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
     θ = θ + integrator.lr * get_θdot(sr; θtype=eltype(θ))
     integrator.step += 1
     return θ, sr
@@ -30,11 +30,21 @@ include("averaging.jl")
 include("noise/noise.jl")
 include("decay.jl")
 
-function evolve(construct_mps, θ::T, H::MPO;
+function evolve(construct_mps, θ::T, H::MPO; sample_nr=1000, parallel=false, kwargs...) where {T}
+    if parallel
+        Oks_and_Eks_ = generate_Oks_and_Eks_parallel(construct_mps, H; kwargs...)
+    else
+        Oks_and_Eks_ = (θ, sample_nr) -> Oks_and_Eks(θ, construct_mps, H, sample_nr; kwargs...)
+    end
+    energy, θ, misc = evolve(Oks_and_Eks_, θ; sample_nr, kwargs...)
+    return energy, θ, construct_mps(θ), misc
+end
+
+function evolve(Oks_and_Eks_, θ::T;
     integrator=Euler(0.1), lr=nothing, solver=EigenSolver(1e-6),
     maxiter=100,
     callback = (args...; kwargs...) -> nothing,
-    copy=true, sample_nr=1000, parallel=false,
+    copy=true, sample_nr=1000,
     verbosity=0, save_params=false, save_rng=false,
     save_sr=false,
     misc_restart=nothing,
@@ -83,16 +93,9 @@ function evolve(construct_mps, θ::T, H::MPO;
         end
     end
 
-
     history_legend = Dict("energy" => 1, "var_energy" => 2, "sample_nr" => 3, "norm_grad" => 4, "norm_θ" => 5, "var_energy" => 6, "tdvp_error" => 7)
     misc = Dict()
     energy = 0.0
-
-    if parallel
-        Oks_and_Eks_ = generate_Oks_and_Eks_parallel(construct_mps, H; kwargs...)
-    else
-        Oks_and_Eks_ = (θ, sample_nr) -> Oks_and_Eks(θ, construct_mps, H, sample_nr; kwargs...)
-    end
 
     for niter in niter_start:maxiter
         θ_old = θ
@@ -115,9 +118,6 @@ function evolve(construct_mps, θ::T, H::MPO;
         if save_rng
             history_rng[niter] = copy(Random.default_rng())
         end
-
-        # Update
-        
 
         # Transform θ
         θ = transform_θ(θ)
@@ -145,7 +145,7 @@ function evolve(construct_mps, θ::T, H::MPO;
         end
     end
 
-    return energy, θ, construct_mps(θ), misc
+    return energy, θ, misc
 end
 
 optimize = evolve

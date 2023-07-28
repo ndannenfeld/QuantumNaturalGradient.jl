@@ -1,16 +1,19 @@
-module SRMPS
+module QuantumNaturalGradient
 
 using Base.Threads
 using Distributed
 using ParallelDataTransfer
 
+using Statistics
 using LinearAlgebra
 using RandomizedLinAlg
-using ITensors
-using Zygote
-using Statistics
-using PastaQ: productstate
 using Random
+
+using Zygote
+
+using ITensors
+using PastaQ: productstate
+
 
 include("distributed_extension.jl")
 include("GeometricTensor/GeometricTensor.jl")
@@ -25,4 +28,4 @@ include("remove_params.jl")
 include("init_params.jl")
 
 
-end # module SRMPS
+end # module QuantumNaturalGradient

@@ -11,7 +11,7 @@ end
 
 function (integrator::EulerAveraging)(θ::AbstractVector, Oks_and_Eks_; solver=nothing, kwargs...)
     @assert solver !== nothing "solver must be specified"
-    sr = StochasticReconfiguration(θ, Oks_and_Eks_; kwargs...)
+    sr = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
 
     if integrator.memory_size !== nothing
         memory_size = integrator.memory_size
@@ -60,7 +60,7 @@ end
 
 function (integrator::EulerAveragingS)(θ::AbstractVector, Oks_and_Eks_; solver=nothing, kwargs...)
     @assert solver !== nothing "solver must be specified"
-    sr = StochasticReconfiguration(θ, Oks_and_Eks_; kwargs...)
+    sr = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
 
     Gtd = dense_S(sr.GT)
     Fs = sr.grad ./ 2

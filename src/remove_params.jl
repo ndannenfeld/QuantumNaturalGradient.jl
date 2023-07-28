@@ -73,7 +73,7 @@ function find_removable_params2(S::Matrix{Float64}; cut=1e-5)
 end
 
 function removeable_params(construct_mps, H, θ, samples::Integer)
-    Oks, Eks = SRMPS.generate_Oks_and_Eks_ansatz_parallel(construct_mps, H, samples)(θ)
+    Oks, Eks = QuantumNaturalGradient.generate_Oks_and_Eks_ansatz_parallel(construct_mps, H, samples)(θ)
     S = cov(Oks)
     ks = get_removable_param(S)
     return ks

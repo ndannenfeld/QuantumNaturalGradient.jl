@@ -6,7 +6,7 @@ mutable struct ReduceSolver <: AbstractCompositeSolver
     #ReduceSolver(solver::AbstractSolver, reduced_size::Number=2, reduction_method::Symbol=:unitary_rrange) = new(solver, reduction_factor, reduction_method)
 end
 
-function (solver::ReduceSolver)(sr::StochasticReconfiguration; kwargs...)
+function (solver::ReduceSolver)(sr::NaturalGradient; kwargs...)
     Ekms = centered(sr.Es)
     
     sample_nr = length(Ekms)

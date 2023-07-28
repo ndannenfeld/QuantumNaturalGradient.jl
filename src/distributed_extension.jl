@@ -21,7 +21,7 @@ end
 
 macro everywhere_async(ex)
     procs = GlobalRef(@__MODULE__, :procs)
-    return esc(:($(SRMPS).@everywhere_async $procs() $ex))
+    return esc(:($(QuantumNaturalGradient).@everywhere_async $procs() $ex))
 end
 
 macro everywhere_async(procs, ex)

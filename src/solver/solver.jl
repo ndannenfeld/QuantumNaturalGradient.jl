@@ -18,7 +18,7 @@ function solve_T(solver::AbstractSolver, GT::SparseGeometricTensor, Es::EnergySu
     return θdot
 end
 
-function (solver::AbstractSolver)(sr::StochasticReconfiguration; method=:auto, kwargs...)
+function (solver::AbstractSolver)(sr::NaturalGradient; method=:auto, kwargs...)
     if method === :T || (method === :auto && size(sr.GT, 1) < size(sr.GT, 2))
         sr.θdot = solve_T(solver, sr.GT, sr.Es; kwargs...)
     else

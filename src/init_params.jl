@@ -5,7 +5,7 @@ function search_init_params(construct_mps, θ, H; gains= 10 .^ collect(range(-0.
     null_space_sizes = []
 
     for gain in gains
-        sr = StochasticReconfiguration(θ .* gain, construct_mps, H; solver, sample_nr=sample_nr, kwargs...)
+        sr = NaturalGradient(θ .* gain, construct_mps, H; solver, sample_nr=sample_nr, kwargs...)
         push!(null_space_sizes, solver.info[:Nz])
         if verbose
             norm_ = norm(sr.θdot)

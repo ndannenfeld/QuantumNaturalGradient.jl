@@ -139,7 +139,7 @@ function generate_Oks_and_Eks_parallel(construct_mps, H::MPO; pull_in_advance=fa
         using Random
         using Zygote
         using ITensors
-        using SRMPS
+        using QuantumNaturalGradient
     end
 
     sendto(workers(), construct_mps=construct_mps, H=H, kwargs=kwargs)
@@ -183,9 +183,9 @@ function generate_Oks_and_Eks_parallel(construct_mps, H::MPO; pull_in_advance=fa
             sample_ = sample(ψo)
             
             if loglike === nothing
-                SRMPS.Ok_and_Ek(ψ, Main.H, sample_, pull; θ_complex=Main.θ_complex, Main.kwargs...), sample_
+                QuantumNaturalGradient.Ok_and_Ek(ψ, Main.H, sample_, pull; θ_complex=Main.θ_complex, Main.kwargs...), sample_
             else
-                SRMPS.Ok_and_Ek(ψ, loglike, Main.H, sample_, pull; θ_complex=Main.θ_complex, Main.kwargs...), sample_
+                QuantumNaturalGradient.Ok_and_Ek(ψ, loglike, Main.H, sample_, pull; θ_complex=Main.θ_complex, Main.kwargs...), sample_
             end
         end
 

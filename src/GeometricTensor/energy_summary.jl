@@ -7,21 +7,24 @@ end
 
 EnergySummary(ψ::MPS, H::MPO; sample_nr=1000) = EnergySummary([Ek(ψ, H) for _ in 1:sample_nr])
 
-function EnergySummary(Eks::Vector{Complex{Float64}})
+function EnergySummary(Eks::Vector{Complex{Float64}}; importance_weights=nothing)
     if any(imag.(Eks) .> 1e-10)
-        mean_ = mean(Eks)
-        Eks_c = real.(Eks .- mean_)
-        std_of_var = std(Eks_c .^ 2)
-        return EnergySummary(Eks, mean_, var(Eks_c), std_of_var)
+        mean_ = wmean(Eks; weights=importance_weights)
+        Eks_c = Eks .- mean_
+        var_ = wvar(Eks_c; weights=importance_weights)
+        std_of_var = wstd(Eks_c * conj(Eks_c); weights=importance_weights)
+        return EnergySummary(Eks_c .* sqrt.(importance_weights), mean_, var_, std_of_var)
     end
-    return EnergySummary(real.(Eks))
+    return EnergySummary(real.(Eks), importance_weights)
 end
 
-function EnergySummary(Eks::Vector{Float64})
-    mean_ = mean(Eks)
+function EnergySummary(Eks::Vector{Float64}; importance_weights=nothing)
+    local mean_, std_of_var
+    mean_, var_ = wmean_and_var(Eks; weights=importance_weights)
     Eks_c = real.(Eks .- mean_)
-    std_of_var = std(Eks_c .^ 2)
-    return EnergySummary(Eks, mean_, var(Eks_c), std_of_var)
+    std_of_var = wstd(Eks_c .^ 2; weights=importance_weights)
+
+    return EnergySummary(Eks_c .* sqrt.(importance_weights), mean_, var_, std_of_var)
 end
 
 Statistics.mean(Es::EnergySummary) = Es.mean
@@ -32,7 +35,7 @@ Base.length(Es::EnergySummary) = length(Es.data)
 energy_error(Es::EnergySummary) = std(Es) / sqrt(length(Es))
 energy_var_error(Es::EnergySummary) = Es.std_of_var / sqrt(length(Es))
 
-centered(Es::EnergySummary) = Es.data .- mean(Es)
+centered(Es::EnergySummary) = Es.data
 
 function Base.show(io::IO, Es::EnergySummary)
     error = energy_error(Es)

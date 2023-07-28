@@ -3,7 +3,7 @@ mutable struct NoiseSolver <: AbstractCompositeSolver
     σ::Real
 end
 
-function (solver::NoiseSolver)(sr::StochasticReconfiguration; method=:auto, kwargs...)
+function (solver::NoiseSolver)(sr::NaturalGradient; method=:auto, kwargs...)
     error("Not implemented properly.") # The samples should be drawn completely randomly for this to work. Also normalization from the Es and Ok should be removed.
     Es_noisy = sr.Es.data + randn(length(sr.Es)) * solver.σ
     Es_noisy = EnergySummary(Es_noisy)

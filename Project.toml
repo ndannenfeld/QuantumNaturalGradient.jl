@@ -1,4 +1,4 @@
-name = "SRMPS"
+name = "QuantumNaturalGradient"
 uuid = "8d03283f-5cc1-4355-9ceb-601ddb1c7e78"
 authors = ["Daniel Alcalde <d.alcalde.puente@fz-juelich.de>"]
 version = "0.1.0"
@@ -12,4 +12,5 @@ PastaQ = "30b07047-aa8b-4c78-a4e8-24d720215c19"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 RandomizedLinAlg = "0448d7d9-159c-5637-8537-fd72090fea46"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
