@@ -134,15 +134,15 @@ function Oks_and_Eks(θ, construct_mps, H::MPO, sample_nr::Integer; kwargs...)
     return Oks, Eks, samples
 end
 
-function generate_Oks_and_Eks_parallel(construct_mps, H::MPO; pull_in_advance=false, force_holomorphic=false, kwargs...)
+function generate_Oks_and_Eks_parallel(construct_mps, H::MPO;
+                                       pull_in_advance=false, force_holomorphic=false, kwargs...)
     @everywhere @eval Main begin
         using Random
         using Zygote
         using ITensors
         using QuantumNaturalGradient
     end
-
-    sendto(workers(), construct_mps=construct_mps, H=H, kwargs=kwargs)
+    sendto(workers(); construct_mps, H, kwargs, pull_in_advance)
 
     function Oks_and_Eks_parallel(θ, sample_nr::Integer)
         seed = rand(UInt)
@@ -151,7 +151,8 @@ function generate_Oks_and_Eks_parallel(construct_mps, H::MPO; pull_in_advance=fa
             θ = Complex.(θ)
         end
 
-        sendto(workers(), θ=θ, seed=seed, pull_in_advance=pull_in_advance)
+        sendto(workers(); θ, seed)
+        
         @everywhere workers() @eval Main begin
             function get_the_pull()
                 ψ, pull = pullback(construct_mps, θ)
@@ -173,19 +174,19 @@ function generate_Oks_and_Eks_parallel(construct_mps, H::MPO; pull_in_advance=fa
         end
         
         Oks_Eks = @distributed (vcat) for i in 1:sample_nr
-            Random.seed!(seed + i)
-            if Main.pull_in_advance
-                ψ, ψo, pull, loglike = Main.ψ, Main.ψo, Main.pull, Main.loglike
-            else
-                ψ, ψo, pull, loglike = Main.get_the_pull()
+            @eval Main begin
+            Random.seed!(seed + $i)
+            if !pull_in_advance
+                ψ, ψo, pull, loglike = get_the_pull()
             end
             
             sample_ = sample(ψo)
             
             if loglike === nothing
-                QuantumNaturalGradient.Ok_and_Ek(ψ, Main.H, sample_, pull; θ_complex=Main.θ_complex, Main.kwargs...), sample_
+                return QuantumNaturalGradient.Ok_and_Ek(ψ, H, sample_, pull; θ_complex, kwargs...), sample_
             else
-                QuantumNaturalGradient.Ok_and_Ek(ψ, loglike, Main.H, sample_, pull; θ_complex=Main.θ_complex, Main.kwargs...), sample_
+                return QuantumNaturalGradient.Ok_and_Ek(ψ, loglike, H, sample_, pull; θ_complex, kwargs...), sample_
+            end
             end
         end
 

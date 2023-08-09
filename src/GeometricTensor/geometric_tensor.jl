@@ -33,7 +33,7 @@ mutable struct NaturalGradient{T <: Number, T2 <: Number, Tint <: Integer}
     grad::Vector{T2}
     θdot::Union{Vector{T2}, Nothing}
     tdvp_error::Union{Real, Nothing}
-    importance_weights::Union{Vector{T<:Real}, Nothing}
+    importance_weights::Union{Vector{<:Real}, Nothing}
     function NaturalGradient(samples::Vector{Vector{Tint}}, GT::SparseGeometricTensor{T}, Es::EnergySummary, logψσs::Vector{Complex{Float64}}, grad::Vector{T2}, θdot::Union{Vector{T2}, Nothing}=nothing, tdvp_error::Union{Float64, Nothing}=nothing; importance_weights=nothing) where {T <: Number, T2 <: Number, Tint <: Integer}
         return new{T, T2, Tint}(samples, GT, Es, logψσs, grad, θdot, tdvp_error, importance_weights)
     end
@@ -66,44 +66,49 @@ function centered(Oks::Vector{Vector{T}}) where T <: Number
     return [ok .- m for ok in Oks]
 end
 
-function NaturalGradient(θ::Vector, Oks_and_Eks; sample_nr=100, kwargs...)
-    out = Oks_and_Eks(θ, sample_nr)
+function NaturalGradient(θ::Vector, Oks_and_Eks; sample_nr=100, timer=TimerOutput(), kwargs...)
+    out = @timeit timer "Oks_and_Eks" Oks_and_Eks(θ, sample_nr)
     if length(out) == 4
         Oks, Eks, logψσs, samples = out
-        return NaturalGradient(Oks, Eks, logψσs, samples; kwargs...)
+        return NaturalGradient(Oks, Eks, logψσs, samples; timer, kwargs...)
     elseif length(out) == 5
         Oks, Eks, logψσs, samples, importance_weights = out
-        return NaturalGradient(Oks, Eks, logψσs, samples; importance_weights, kwargs...)
+        return NaturalGradient(Oks, Eks, logψσs, samples; timer, importance_weights, kwargs...)
     else 
         error("Oks_and_Eks should return 4 or 5 values")
     end
     
 end
 
-function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples::Union{Vector, Matrix}; importance_weights=nothing, solver=nothing, discard_outliers=0.)   
+function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples::Union{Vector, Matrix};
+    importance_weights=nothing, solver=nothing, discard_outliers=0., timer=TimerOutput(), kwargs...) 
     if discard_outliers > 0
         l = max(Int(round(length(Eks) * discard_outliers / 2)), 1)
         s = sortperm(Eks);
         remove = sort(vcat(s[1:l], s[end-l+1:end]))
         deleteat!(Eks, remove)
-        deleteat!(importance_weights, remove)
+        if importance_weights !== nothing
+            deleteat!(importance_weights, remove)
+        end
         deleteat!(logψσs, remove)
         deleteat!(Oks, remove)
         deleteat!(samples, remove)
     end
-
-    importance_weights ./= mean(importance_weights)
+    if importance_weights !== nothing
+        importance_weights ./= mean(importance_weights)
+    end
+    
     Es = EnergySummary(Eks; importance_weights)
 
     Ekms = centered(Es)
 
-    GT = SparseGeometricTensor(Oks; importance_weights)
-    grad = 2 * GT.data' * Ekms ./ length(Es)
+    GT = @timeit timer "copy Oks" SparseGeometricTensor(Oks; importance_weights)
+    grad = @timeit timer "grad" 2 * GT.data' * Ekms ./ length(Es)
 
     sr = NaturalGradient(samples, GT, Es, logψσs, grad; importance_weights)
 
     if solver !== nothing
-        solver(sr)
+        @timeit timer "solver" solver(sr)
     end
 
     return sr
