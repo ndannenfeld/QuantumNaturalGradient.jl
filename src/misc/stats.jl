@@ -1,5 +1,5 @@
 function wmean(arr::AbstractArray{<:Number}; weights=nothing, kwargs...)
-    if weights === nothing
+    if weights !== nothing
         arr = arr .* weights
     end
     return mean(arr; kwargs...)
@@ -20,11 +20,11 @@ function wmean_and_var(arr::AbstractArray{<:Number}; weights=nothing, kwargs...)
     size_ = get_sum_size(arr; kwargs...)
     if weights !== nothing
         @assert prod(size(weights)) == size_ "The size of the weights array must be the same as the dimensions of the array to be averaged."
-        n = sum(weights; kwargs...)
-        mean_ = sum(arr .* weights; kwargs...) ./ n
+        n = mean(weights; kwargs...)
+        mean_ = mean(arr .* weights; kwargs...) ./ n
         f = size_ / (size_ - 1) ./ n
         arr_m_ = arr .- mean_
-        var_ = sum(arr_m_ .* conj(arr_m_).* weights; kwargs...)  .* f
+        var_ = mean(arr_m_ .* conj(arr_m_).* weights; kwargs...)  .* f
     else
         mean_ = mean(arr; kwargs...)
         f = size_ / (size_ - 1)
@@ -38,21 +38,27 @@ wvar(arr::AbstractArray{<:Number}; kwargs...) = wmean_and_var(arr; kwargs...)[2]
 wstd(arr::AbstractArray{<:Number}; kwargs...) = sqrt.(wvar(arr; kwargs...))
 
 function threaded_mean(arr::Vector{T}; weights=nothing) where T
-    @assert length(weights) == length(arr)
     num_threads = Threads.nthreads()
     sums = Vector{T}(undef, num_threads)
+    local norm
+    len = length(arr)
     if weights === nothing
         @threads for i in 1:num_threads
-            start_index = div(length(arr)*(i - 1), num_threads) + 1
-            end_index = div(length(arr)*i, num_threads)
+            start_index = div(len*(i - 1), num_threads) + 1
+            end_index = div(len*i, num_threads)
             sums[i] = sum(arr[start_index:end_index])
         end
+        norm = len
     else
+        @assert length(weights) == len
+        norms = Vector{T}(undef, num_threads)
         @threads for i in 1:num_threads
-            start_index = div(length(arr)*(i - 1), num_threads) + 1
-            end_index = div(length(arr)*i, num_threads)
+            start_index = div(len*(i - 1), num_threads) + 1
+            end_index = div(len*i, num_threads)
             sums[i] = sum(arr[start_index:end_index].*weights[start_index:end_index])
+            norms[i] = sum(weights[start_index:end_index])
         end
+        norm = sum(norms)
     end
 
     # Compute the overall mean
