@@ -10,17 +10,30 @@ function Base.getproperty(integrator::AbstractCompositeIntegrator, property::Sym
     end
 end
 
-mutable struct Euler <: AbstractIntegrator
+function clamp_and_norm!(gradients, clip_val, clip_norm)
+    clamp!(gradients, -clip_val, clip_val)
+    norm(gradients) > clip_norm ? gradients .= (gradients ./ norm(gradients)) .* clip_norm : nothing
+    return gradients
+end
+@with_kw mutable struct Euler <: AbstractIntegrator
     lr::Float64
-    step::Integer
-    function Euler(lr::Real; step::Integer=0)
-        return new(lr, step)
-    end
+    step::Integer = 0
+    use_clipping::Bool = false
+    clip_norm::Float64 = 5
+    clip_val::Float64 = 1
 end
 
 function (integrator::Euler)(θ::AbstractVector, Oks_and_Eks_; kwargs...)
-    sr = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
-    θ = θ + integrator.lr * get_θdot(sr; θtype=eltype(θ))
+    if :timer in keys(kwargs)
+        sr = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ, Oks_and_Eks_; kwargs...)
+    else
+        sr = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
+    end
+    g = get_θdot(sr; θtype=eltype(θ))
+    if integrator.use_clipping
+        clamp_and_norm!(g, integrator.clip_val, integrator.clip_norm)
+    end
+    θ = θ .+ integrator.lr .* g
     integrator.step += 1
     return θ, sr
 end
@@ -30,19 +43,9 @@ include("averaging.jl")
 include("noise/noise.jl")
 include("decay.jl")
 
-function evolve(construct_mps, θ::T, H::MPO; sample_nr=1000, parallel=false, kwargs...) where {T}
-    if parallel
-        Oks_and_Eks_ = generate_Oks_and_Eks_parallel(construct_mps, H; kwargs...)
-    else
-        Oks_and_Eks_ = (θ, sample_nr) -> Oks_and_Eks(θ, construct_mps, H, sample_nr; kwargs...)
-    end
-    energy, θ, misc = evolve(Oks_and_Eks_, θ; sample_nr, kwargs...)
-    return energy, θ, construct_mps(θ), misc
-end
-
-function evolve(Oks_and_Eks_, θ::T;
+function evolve(construct_mps, θ::T, H::MPO; parallel=false,
     integrator=Euler(0.1), lr=nothing, solver=EigenSolver(1e-6),
-    maxiter=100,
+    maxiter=10,
     callback = (args...; kwargs...) -> nothing,
     copy=true, sample_nr=1000,
     verbosity=0, save_params=false, save_rng=false,
@@ -50,7 +53,31 @@ function evolve(Oks_and_Eks_, θ::T;
     misc_restart=nothing,
     discard_outliers=0.,
     transform_θ=x->x, transform_sr=(args...) -> args,
+    timer=TimerOutput(),
     kwargs...
+    ) where {T}
+    if parallel
+        Oks_and_Eks_ = generate_Oks_and_Eks_parallel(construct_mps, H; kwargs...)
+    else
+        Oks_and_Eks_ = (θ, sample_nr) -> Oks_and_Eks(θ, construct_mps, H, sample_nr; kwargs...)
+    end
+    energy, θ, misc = evolve(Oks_and_Eks_, θ; integrator, lr, solver, maxiter, callback, copy, sample_nr, 
+                            verbosity, save_params, save_rng, save_sr, misc_restart, discard_outliers, 
+                            transform_θ, transform_sr, timer)
+    return energy, θ, construct_mps(θ), misc
+end
+
+function evolve(Oks_and_Eks_, θ::T;
+    integrator=Euler(0.1), lr=nothing, solver=EigenSolver(1e-6),
+    maxiter=10,
+    callback = (args...; kwargs...) -> nothing,
+    copy=true, sample_nr=1000,
+    verbosity=0, save_params=false, save_rng=false,
+    save_sr=false,
+    misc_restart=nothing,
+    discard_outliers=0.,
+    transform_θ=x->x, transform_sr=(args...) -> args,
+    timer=TimerOutput()
     ) where {T}
     if lr !== nothing
         integrator = Euler(lr)
@@ -70,7 +97,6 @@ function evolve(Oks_and_Eks_, θ::T;
     end
 
     history = Matrix{Float64}(undef, maxiter, 7)
-
     # Restarting from a previous run
     niter_start = 1
     if misc_restart !== nothing
@@ -99,7 +125,7 @@ function evolve(Oks_and_Eks_, θ::T;
 
     for niter in niter_start:maxiter
         θ_old = θ
-        θ, sr = integrator(θ, Oks_and_Eks_; sample_nr, solver, discard_outliers)
+        θ, sr = @timeit timer "integrator" integrator(θ, Oks_and_Eks_; sample_nr, solver, discard_outliers, timer)
 
         # Transform sr
         sr, Oks_and_Eks_, solver, sample_nr = transform_sr(sr, Oks_and_Eks_, solver, sample_nr)
@@ -143,6 +169,11 @@ function evolve(Oks_and_Eks_, θ::T;
         if stop === :stop
             break
         end
+    end
+
+    if verbosity >= 2
+        @info "evolve: Done"
+        show(timer)
     end
 
     return energy, θ, misc

@@ -1,12 +1,16 @@
 abstract type AbstractIntegratorAveraging <: AbstractIntegrator end
 
-mutable struct EulerAveraging <: AbstractIntegratorAveraging
+
+@with_kw mutable struct EulerAveraging <: AbstractIntegratorAveraging
     lr::Float64
-    beta::Float64
-    memory_size::Union{Integer, Nothing}
-    Eks
-    Oks
-    EulerAveraging(lr=0.1, beta=0.9, memory_size=nothing) = new(lr, beta, memory_size, nothing, nothing)
+    beta::Float64 = 0.9
+    memory_size::Union{Integer, Nothing} = nothing
+    use_clipping::Bool = false
+    clip_norm::Float64 = 5
+    clip_val::Float64 = 1
+    Eks = nothing
+    Oks = nothing
+    outlier_threshold::Float64 = 10
 end
 
 function (integrator::EulerAveraging)(θ::AbstractVector, Oks_and_Eks_; solver=nothing, kwargs...)
@@ -19,19 +23,30 @@ function (integrator::EulerAveraging)(θ::AbstractVector, Oks_and_Eks_; solver=n
         memory_size = length(sr)
     end
 
-    Eks = centered(sr.Es)
+    Oksc = sr.GT.data ./ sqrt(length(sr))
+    Eksc = centered(sr.Es) ./ sqrt(length(sr))
+
     if integrator.Oks !== nothing
-        factor = norm(integrator.Eks) / norm(Eks)
+        if integrator.outlier_threshold < norm(Eksc) / norm(integrator.Eks)
+            random_number = rand(1:100000)
+            name = "outlier_$random_number.jld2"
+            @info "Outlier detected, resampling, saving as $name"
+            save(name , "sr", sr)
+            sr = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
+            Oksc = sr.GT.data ./ sqrt(length(sr))
+            Eksc = centered(sr.Es) ./ sqrt(length(sr))
+        end
 
-        beta = integrator.beta
+        beta_sqrt = sqrt(integrator.beta)
+        betam_sqrt = sqrt(1-integrator.beta)
 
-        Oksc = cat(factor * beta .* integrator.Oks,  (1-beta) .* sr.GT.data, dims=1)
-        Eksc = vcat(factor * beta .* integrator.Eks, (1-beta) .* Eks)
+        Oksc = cat(beta_sqrt .* integrator.Oks,  betam_sqrt .* Oksc, dims=1)
+        Eksc = vcat(beta_sqrt .* integrator.Eks, betam_sqrt .* Eks)
+        @show norm(Eksc), norm(Eks), norm(integrator.Eks)
 
         memory_size = min(memory_size, length(sr) + length(integrator.Eks))
     else
-        Oksc = sr.GT.data
-        Eksc = Eks
+        
 
         memory_size = min(memory_size, length(sr))
     end
@@ -41,12 +56,24 @@ function (integrator::EulerAveraging)(θ::AbstractVector, Oks_and_Eks_; solver=n
     integrator.Eks = U * Eksc
 
     GTd = integrator.Oks * integrator.Oks'
-    θdot_raw = -solver(GTd, integrator.Eks)
+
+    local θdot_raw
+    if :timer in keys(kwargs)
+        θdot_raw = @timeit kwargs[:timer] "solver" -solver(GTd, integrator.Eks)
+    else
+        θdot_raw = -solver(GTd, integrator.Eks)
+    end
+    
     sr.θdot = integrator.Oks' * θdot_raw
 
     tdvp_error!(sr)
 
-    θ = θ + integrator.lr .* get_θdot(sr; θtype=eltype(θ))
+    θdot = get_θdot(sr; θtype=eltype(θ))
+    if integrator.use_clipping
+        clamp_and_norm!(θdot, integrator.clip_val, integrator.clip_norm)
+    end
+
+    θ = θ + integrator.lr .* θdot
     return θ, sr
 end
 
