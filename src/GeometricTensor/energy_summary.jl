@@ -4,6 +4,7 @@ struct EnergySummary{T <: Number}
     std_of_mean::Float64
     var::Float64
     std_of_var::Float64
+    importance_weights::Union{Vector{Float64}, Nothing}
 end
 
 EnergySummary(ψ::MPS, H::MPO; sample_nr=1000) = EnergySummary([Ek(ψ, H) for _ in 1:sample_nr])
@@ -24,7 +25,7 @@ function EnergySummary(Eks::Vector{Complex{Float64}}; importance_weights=nothing
             std_of_mean = sqrt(real.(var_))
             std_of_var = std(Eks_c .* conj(Eks_c))
         end
-        return EnergySummary(Eks_c, mean_, std_of_mean, real.(var_), real.(std_of_var))
+        return EnergySummary(Eks_c, mean_, std_of_mean, real.(var_), real.(std_of_var), importance_weights)
     end
     return EnergySummary(real.(Eks); importance_weights)
 end
@@ -45,7 +46,7 @@ function EnergySummary(Eks::Vector{Float64}; importance_weights=nothing)
         std_of_var = std(Eks_c .^ 2)
     end
 
-    return EnergySummary(Eks_c, mean_, std_of_mean, var_, std_of_var)
+    return EnergySummary(Eks_c, mean_, std_of_mean, var_, std_of_var, importance_weights)
 end
 
 Statistics.mean(Es::EnergySummary) = Es.mean
