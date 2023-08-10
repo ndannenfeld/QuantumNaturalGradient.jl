@@ -75,27 +75,19 @@ function NaturalGradient(θ::Vector, Oks_and_Eks; sample_nr=100, timer=TimerOutp
         Oks, Eks, logψσs, samples, importance_weights = out
         return NaturalGradient(Oks, Eks, logψσs, samples; timer, importance_weights, kwargs...)
     else 
-        error("Oks_and_Eks should return 4 or 5 values")
+        error("Oks_and_Eks should return 4 or 5 values. If 4 are returned, importance_weights is assumed to be =1.")
     end
-    
 end
 
 function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples::Union{Vector, Matrix};
-    importance_weights=nothing, solver=nothing, discard_outliers=0., timer=TimerOutput(), kwargs...) 
-    if discard_outliers > 0
-        l = max(Int(round(length(Eks) * discard_outliers / 2)), 1)
-        s = sortperm(Eks);
-        remove = sort(vcat(s[1:l], s[end-l+1:end]))
-        deleteat!(Eks, remove)
-        if importance_weights !== nothing
-            deleteat!(importance_weights, remove)
-        end
-        deleteat!(logψσs, remove)
-        deleteat!(Oks, remove)
-        deleteat!(samples, remove)
-    end
+    importance_weights=nothing, solver=nothing, discard_outliers=0., timer=TimerOutput(), verbose=true, kwargs...) 
+
     if importance_weights !== nothing
         importance_weights ./= mean(importance_weights)
+    end
+
+    if discard_outliers > 0
+        Eks, Oks, logψσs, samples, importance_weights = remove_outliers!(Eks, Oks, logψσs, samples, importance_weights; importance_weights, cut=discard_outliers, verbose)
     end
     
     Es = EnergySummary(Eks; importance_weights)
