@@ -17,10 +17,10 @@ function (solver::ReduceSolver)(sr::NaturalGradient; kwargs...)
         if solver.reduction_method === :unitary
             U = NDTensors.random_unitary(Float64, new_sample_nr, sample_nr)
         else
-            U = RandomizedLinAlg.rrange(sr.GT.data, new_sample_nr)'
+            U = RandomizedLinAlg.rrange(centered(sr.GT), new_sample_nr)'
         end
         
-        GT = U * sr.GT.data
+        GT = U * centered(sr.GT)
         GTd = GT * GT'
         
         θdot_raw = -solver(GTd, U * Ekms; kwargs...)
@@ -34,7 +34,7 @@ function (solver::ReduceSolver)(sr::NaturalGradient; kwargs...)
         sample_nr_eff = sample_nr ÷ reduction_factor * reduction_factor
         new_sample_nr = sample_nr_eff ÷ reduction_factor
         
-        GT = sr.GT.data[1:sample_nr_eff, :]
+        GT = centered(sr.GT)[1:sample_nr_eff, :]
 
         GT = reshape(GT[1:sample_nr_eff, :], new_sample_nr, reduction_factor, size(GT, 2))
         GT = mean(GT, dims=2)[:, 1, :]

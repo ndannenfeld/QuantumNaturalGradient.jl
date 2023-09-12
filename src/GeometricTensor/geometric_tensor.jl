@@ -1,6 +1,7 @@
 struct SparseGeometricTensor{T <: Number}
     data::AbstractArray{T, 2}
     data_mean::Vector{T}
+    importance_weights::Union{Vector{<:Real}, Nothing}
     function SparseGeometricTensor(m::AbstractMatrix{T}; importance_weights=nothing) where T <: Number
         data_mean = wmean(m; weights=importance_weights, dims=1)
         m = m .- data_mean
@@ -10,7 +11,7 @@ struct SparseGeometricTensor{T <: Number}
         if importance_weights !== nothing
             m = m .* sqrt.(importance_weights)
         end
-        return new{T}(m, data_mean)
+        return new{T}(m, data_mean, importance_weights)
     end
     function SparseGeometricTensor(m::Vector{Vector{T}}; importance_weights=nothing) where T <: Number
         m, data_mean = convert_to_matrix_without_mean(m; weights=importance_weights)
@@ -21,9 +22,42 @@ end
 Base.size(GT::SparseGeometricTensor) = size(GT.data)
 Base.size(GT::SparseGeometricTensor, i) = size(GT.data, i)
 Base.length(GT::SparseGeometricTensor) = size(GT.data, 1)
+function get_importance_weights(GT::SparseGeometricTensor)
+    if GT.importance_weights === nothing
+        return ones(length(GT))
+    else
+        return GT.importance_weights
+    end
+end
 
-dense_T(G::SparseGeometricTensor) = G.data * G.data'
-dense_S(G::SparseGeometricTensor) = G.data' * G.data ./ size(G.data, 1)
+function centered(GT::SparseGeometricTensor; mode=:importance_sqrt)
+    if mode == :importance_sqrt
+        return GT.data
+    elseif mode == :importance
+        return GT.data .* sqrt.(GT.importance_weights)
+    elseif mode == :no_importance
+        return GT.data ./ sqrt.(GT.importance_weights)
+    else
+        error("mode should be :importance_sqrt, :importance or :no_importance. $mode was given.")
+    end
+end
+    
+function uncentered(GT::SparseGeometricTensor)
+    GTd = centered(GT; mode=:no_importance)
+    return GTd .+ reshape(GT.data_mean, 1, :)
+end
+
+Statistics.mean(GT::SparseGeometricTensor) = GT.data_mean
+
+function dense_T(G::SparseGeometricTensor)
+    GT = centered(G)
+    return GT * GT'
+end
+
+function dense_S(G::SparseGeometricTensor)
+    GT = centered(G)
+    return (GT' * GT) ./ length(GT)
+end
 
 mutable struct NaturalGradient{T <: Number, T2 <: Number, Tint <: Integer}
     samples::Vector{Vector{Tint}}
@@ -34,10 +68,18 @@ mutable struct NaturalGradient{T <: Number, T2 <: Number, Tint <: Integer}
     θdot::Union{Vector{T2}, Nothing}
     tdvp_error::Union{Real, Nothing}
     importance_weights::Union{Vector{<:Real}, Nothing}
-    function NaturalGradient(samples::Vector{Vector{Tint}}, GT::SparseGeometricTensor{T}, Es::EnergySummary, logψσs::Vector{Complex{Float64}}, grad::Vector{T2}, θdot::Union{Vector{T2}, Nothing}=nothing, tdvp_error::Union{Float64, Nothing}=nothing; importance_weights=nothing) where {T <: Number, T2 <: Number, Tint <: Integer}
+    function NaturalGradient(samples::Vector{Vector{Tint}}, GT::SparseGeometricTensor{T}, Es::EnergySummary,
+         logψσs::Vector{Complex{Float64}}, grad::Vector{T2}, θdot::Union{Vector{T2}, Nothing}=nothing,
+          tdvp_error::Union{Float64, Nothing}=nothing;
+          importance_weights=nothing) where {T <: Number, T2 <: Number, Tint <: Integer}
+
         return new{T, T2, Tint}(samples, GT, Es, logψσs, grad, θdot, tdvp_error, importance_weights)
     end
-    function NaturalGradient(samples::Matrix{Tint}, GT::SparseGeometricTensor{T}, Es::EnergySummary, logψσs::Vector{Complex{Float64}}, grad::Vector{T2}, θdot::Union{Vector{T2}, Nothing}=nothing, tdvp_error::Union{Float64, Nothing}=nothing; importance_weights=nothing) where {T <: Number, T2 <: Number, Tint <: Integer}
+    function NaturalGradient(samples::Matrix{Tint}, GT::SparseGeometricTensor{T}, Es::EnergySummary,
+        logψσs::Vector{Complex{Float64}}, grad::Vector{T2}, θdot::Union{Vector{T2}, Nothing}=nothing,
+        tdvp_error::Union{Float64, Nothing}=nothing;
+        importance_weights::Union{Vector{<:Real}, Nothing}=nothing) where {T <: Number, T2 <: Number, Tint <: Integer}
+
         return new{T, T2, Tint}(convert_to_vector(samples), GT, Es, logψσs, grad, θdot, tdvp_error, importance_weights)
     end
 end
@@ -75,12 +117,12 @@ function NaturalGradient(θ::Vector, Oks_and_Eks; sample_nr=100, timer=TimerOutp
         Oks, Eks, logψσs, samples, importance_weights = out
         return NaturalGradient(Oks, Eks, logψσs, samples; timer, importance_weights, kwargs...)
     else 
-        error("Oks_and_Eks should return 4 or 5 values. If 4 are returned, importance_weights is assumed to be =1.")
+        error("Oks_and_Eks should return 4 or 5 values. If 4 are returned, importance_weights is assumed to be  equal to 1.")
     end
 end
 
-function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples::Union{Vector, Matrix};
-    importance_weights=nothing, solver=nothing, discard_outliers=0., timer=TimerOutput(), verbose=true, kwargs...) 
+function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples::Union{Vector{Vector{<:Integer}}, Matrix{<:Integer}};
+    importance_weights=nothing, solver=nothing, discard_outliers=0., timer=TimerOutput(), verbose=true) 
 
     if importance_weights !== nothing
         importance_weights ./= mean(importance_weights)
@@ -95,9 +137,10 @@ function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples::Union{Vect
     Ekms = centered(Es)
 
     GT = @timeit timer "copy Oks" SparseGeometricTensor(Oks; importance_weights)
-    grad = @timeit timer "grad" 2 * GT.data' * Ekms ./ length(Es)
+    grad = @timeit timer "grad" 2 * centered(GT)' * Ekms ./ length(Es)
 
     sr = NaturalGradient(samples, GT, Es, logψσs, grad; importance_weights)
+    
 
     if solver !== nothing
         @timeit timer "solver" solver(sr)
@@ -142,12 +185,11 @@ end
 function tdvp_error(GT::SparseGeometricTensor, Es::EnergySummary, grad_half::Vector, θdot::Vector)
     var_E = var(Es)
 
-    Eks_eff = -(GT.data * θdot) 
+    Eks_eff = -(centered(GT) * θdot) 
 
     Eks = centered(Es)
     relative_error = std(Eks_eff .- Eks) / (std(Eks) + 1e-10)
 
-    
     var_eff_1 = -Eks_eff' * Eks_eff / length(Es)
     # var_eff_1 = -var(Eks_eff)
 
@@ -167,7 +209,7 @@ function tdvp_relative_error(sr::NaturalGradient, sr_control::NaturalGradient)
 end
 
 function tdvp_relative_error(GT::SparseGeometricTensor, Es::EnergySummary, θdot::Vector)
-    Eks_eff = -(GT.data * θdot)
+    Eks_eff = -(centered(GT) * θdot)
     Eks = centered(Es)
     relative_error = std(Eks_eff .- Eks) / (std(Eks) + 1e-10)
     return relative_error

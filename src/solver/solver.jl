@@ -13,7 +13,7 @@ function solve_T(solver::AbstractSolver, GT::SparseGeometricTensor, Es::EnergySu
     Ekms = centered(Es)
     #println("Ekms = ", Ekms)
     θdot_raw = -solver(GTd, Ekms; kwargs...)
-    θdot = GT.data' * θdot_raw
+    θdot = centered(GT)' * θdot_raw
 
     return θdot
 end

@@ -9,6 +9,7 @@ end
 
 
 function (solver::EigenSolver)(M::AbstractMatrix, v::AbstractVector)
+    #@assert ishermitian(M) "EigenSolver: M is not Hermitian"
     eig = eigen(Hermitian(M))
     max_val = eig.values[end]
     cond = eig.values ./ max_val

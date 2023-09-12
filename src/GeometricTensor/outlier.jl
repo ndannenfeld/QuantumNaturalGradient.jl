@@ -15,24 +15,25 @@ function remove_outliers!(Eks::AbstractVector, args...; importance_weights=nothi
     local remove
     if importance_weights !== nothing
         remove = find_outliers(Eks .* importance_weights; cut)
-        deleteat!(importance_weights, remove)
     else
         remove = find_outliers(Eks; cut)
     end
 
-    args_new = args
+    local args_new
     if length(remove) > 0
         if verbose
             println("Removing ", length(remove), " outliers")
         end
-        deleteat!(Eks, remove)
+        Eks = deleteat_(Eks, remove)
         args_new = Any[Eks]
         for arg in args
             arg = deleteat_(arg, remove)
             push!(args_new, arg)
         end
+    else
+        args_new = Any[Eks, args...]
     end
-    return Tuple(args_new)
+    return args_new
 end
 
 function deleteat_(m::AbstractMatrix, v::Vector{<:Integer})
@@ -41,6 +42,7 @@ function deleteat_(m::AbstractMatrix, v::Vector{<:Integer})
 end
 
 function deleteat_(m::AbstractVector, v::Vector{<:Integer})
+    m = copy(m)
     deleteat!(m, v)
     return m
 end

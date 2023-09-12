@@ -12,7 +12,7 @@ function (solver::NoiseSolver)(sr::NaturalGradient; method=:auto, kwargs...)
         sr.θdot = solve_T(solver, sr.GT, Es_noisy; kwargs...)
     else
         Ekms = centered(Es_noisy)
-        grad_half = GT.data' * Ekms ./ length(Es)
+        grad_half = centered(GT)' * Ekms ./ length(Es)
         sr.θdot = solve_S(solver, sr.GT, grad_half; kwargs...)
     end
     

@@ -54,10 +54,32 @@ Statistics.var(Es::EnergySummary) = Es.var
 Statistics.std(Es::EnergySummary) = sqrt(Es.var)
 Base.length(Es::EnergySummary) = length(Es.data)
 
+function get_importance_weights(Es::EnergySummary)
+    if Es.importance_weights === nothing
+        return ones(length(Es))
+    else
+        return Es.importance_weights
+    end
+end
+
 energy_error(Es::EnergySummary) = Es.std_of_mean / sqrt(length(Es))
 energy_var_error(Es::EnergySummary) = Es.std_of_var / sqrt(length(Es))
 
-centered(Es::EnergySummary) = Es.data
+function centered(Es::EnergySummary; mode=:importance_sqrt)
+    if mode == :importance_sqrt
+        return Es.data
+    elseif mode == :importance
+        return Es.data .* sqrt.(Es.importance_weights)
+    elseif mode == :no_importance
+        return Es.data ./ sqrt.(Es.importance_weights)
+    else
+        error("mode should be :importance_sqrt, :importance or :no_importance. $mode was given.")
+    end
+end
+function uncentered(Es::EnergySummary)
+    Esd = centered(Es; mode=:no_importance)
+    return Esd .+ Es.mean
+end
 
 function Base.show(io::IO, Es::EnergySummary)
     error = energy_error(Es)
