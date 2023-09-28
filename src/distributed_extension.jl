@@ -47,7 +47,8 @@ macro addprocs_and_everywhere(num_procs, ex, max_add_num_procs=numprocs, verbose
             added_workers = addprocs(ad)
             if $verbose
                 @time @everywhere added_workers $ex
-                println("Total: ", length(procs()) , " - Added ", ad, " procs")
+                println("Total: ", length(procs()), "/", num_procs , " - Added ", ad, " procs")
+                println("Free mem: ",  Sys.free_memory() / 2^30, " GB")
             else
                 @everywhere added_workers @eval $ex
             end
