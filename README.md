@@ -16,7 +16,7 @@ Your implementation of `Oks_and_Eks` should return a tuple with the following el
 - `::Vector` - The expectation value of the Hamiltonian, `<s|H|psi>/<s|psi>`.
 - `logψσs` - The logarithm of `<s|psi>`, useful for debugging. If not needed, return `zeros(sample_nr)`.
 - `samples::Vector{Int}` - The sampled samples, useful for debugging. If not needed, return `zeros(Int, sample_nr)`.
-- (Optional) `::Vector{Float}` - If you're employing importance sampling $p(s)\neq ||\psi(s)||^2)$, provide the squared absolute value of `||<s|psi>||^2/p(s)`. Otherwise, this can be omitted.
+- (Optional) `::Vector{Float}` - If you're employing importance sampling $p(s)\neq ||\psi(s)||^2$, provide the squared absolute value of `||<s|psi>||^2/p(s)`. Otherwise, this can be omitted.
 
 ### Imaginary Time Evolution
 
