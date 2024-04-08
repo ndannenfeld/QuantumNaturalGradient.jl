@@ -31,6 +31,9 @@ function get_importance_weights(GT::SparseGeometricTensor)
 end
 
 function centered(GT::SparseGeometricTensor; mode=:importance_sqrt)
+    if GT.importance_weights === nothing
+        return GT.data
+    end
     if mode == :importance_sqrt
         return GT.data
     elseif mode == :importance
@@ -59,8 +62,8 @@ function dense_S(G::SparseGeometricTensor)
     return (GT' * GT) ./ length(GT)
 end
 
-mutable struct NaturalGradient{T <: Number, T2 <: Number, Tint <: Integer}
-    samples::Vector{Vector{Tint}}
+mutable struct NaturalGradient{T <: Number, T2 <: Number}
+    samples
     GT::SparseGeometricTensor{T}
     Es::EnergySummary
     logψσs::Vector{Complex{Float64}}
@@ -68,19 +71,12 @@ mutable struct NaturalGradient{T <: Number, T2 <: Number, Tint <: Integer}
     θdot::Union{Vector{T2}, Nothing}
     tdvp_error::Union{Real, Nothing}
     importance_weights::Union{Vector{<:Real}, Nothing}
-    function NaturalGradient(samples::Vector{Vector{Tint}}, GT::SparseGeometricTensor{T}, Es::EnergySummary,
+    function NaturalGradient(samples, GT::SparseGeometricTensor{T}, Es::EnergySummary,
          logψσs::Vector{Complex{Float64}}, grad::Vector{T2}, θdot::Union{Vector{T2}, Nothing}=nothing,
           tdvp_error::Union{Float64, Nothing}=nothing;
-          importance_weights=nothing) where {T <: Number, T2 <: Number, Tint <: Integer}
+          importance_weights=nothing) where {T <: Number, T2 <: Number}
 
-        return new{T, T2, Tint}(samples, GT, Es, logψσs, grad, θdot, tdvp_error, importance_weights)
-    end
-    function NaturalGradient(samples::Matrix{Tint}, GT::SparseGeometricTensor{T}, Es::EnergySummary,
-        logψσs::Vector{Complex{Float64}}, grad::Vector{T2}, θdot::Union{Vector{T2}, Nothing}=nothing,
-        tdvp_error::Union{Float64, Nothing}=nothing;
-        importance_weights::Union{Vector{<:Real}, Nothing}=nothing) where {T <: Number, T2 <: Number, Tint <: Integer}
-
-        return new{T, T2, Tint}(convert_to_vector(samples), GT, Es, logψσs, grad, θdot, tdvp_error, importance_weights)
+        return new{T, T2}(samples, GT, Es, logψσs, grad, θdot, tdvp_error, importance_weights)
     end
 end
 function convert_to_vector(samples::Matrix{T}) where T <: Integer
@@ -121,7 +117,7 @@ function NaturalGradient(θ::Vector, Oks_and_Eks; sample_nr=100, timer=TimerOutp
     end
 end
 
-function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples::Union{Vector{Vector{<:Integer}}, Matrix{<:Integer}};
+function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
     importance_weights=nothing, solver=nothing, discard_outliers=0., timer=TimerOutput(), verbose=true) 
 
     if importance_weights !== nothing
@@ -188,7 +184,7 @@ function tdvp_error(GT::SparseGeometricTensor, Es::EnergySummary, grad_half::Vec
     Eks_eff = -(centered(GT) * θdot) 
 
     Eks = centered(Es)
-    relative_error = std(Eks_eff .- Eks) / (std(Eks) + 1e-10)
+    #relative_error = std(Eks_eff .- Eks) / (std(Eks) + 1e-10)
 
     var_eff_1 = -Eks_eff' * Eks_eff / length(Es)
     # var_eff_1 = -var(Eks_eff)

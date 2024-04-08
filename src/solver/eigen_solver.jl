@@ -8,7 +8,7 @@ mutable struct EigenSolver <: AbstractSolver
 end
 
 
-function (solver::EigenSolver)(M::AbstractMatrix, v::AbstractVector)
+function (solver::EigenSolver)(M::AbstractMatrix, v::AbstractArray)
     #@assert ishermitian(M) "EigenSolver: M is not Hermitian"
     eig = eigen(Hermitian(M))
     max_val = eig.values[end]
@@ -16,10 +16,12 @@ function (solver::EigenSolver)(M::AbstractMatrix, v::AbstractVector)
     
     Nz = sum(cond .< solver.revcut)
     condition_number = std(log.(abs.(cond[Nz+1:end])))
-
-    if solver.save_info
-        solver.info = Dict(:eig => eig, :Nz => Nz, :condition_number => condition_number)
-    end
+    
+    soft_cond = @. ifelse(cond < 1e-13, 0, (max_val*solver.revcut + solver.abscut) / abs(eig.values)) ^ 6
+    inv_eigen = @. ifelse(cond < 1e-13, 0, 1 / (eig.values * (1 + soft_cond)))
+    #inv_eigen = ifelse.(cond .< solver.revcut, 0, 1 ./ eig.values)
+    gt = eig.vectors' * v .* inv_eigen
+    o = eig.vectors * gt
 
     if solver.verbose
         p = Nz / length(cond) * 100
@@ -32,13 +34,10 @@ function (solver::EigenSolver)(M::AbstractMatrix, v::AbstractVector)
         flush(stdout)
         flush(stderr)
     end
-    
-    soft_cond = @. ifelse(cond < 1e-13, 0, (max_val*solver.revcut + solver.abscut) / abs(eig.values)) ^ 6
-    inv_eigen = @. ifelse(cond < 1e-13, 0, 1 / (eig.values * (1 + soft_cond)))
 
-    #inv_eigen = ifelse.(cond .< solver.revcut, 0, 1 ./ eig.values)
+    if solver.save_info
+        solver.info = Dict(:eig => eig, :Nz => Nz, :condition_number => condition_number)
+    end
 
-    gt = eig.vectors' * v .* inv_eigen
-    
-    return eig.vectors * gt
+    return o
 end

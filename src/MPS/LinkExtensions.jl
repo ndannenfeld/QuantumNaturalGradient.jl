@@ -16,16 +16,20 @@ function apply_link_unitaries(ψ, Us)
         else
             ψ2[i] = ψ[i] * Us[i - 1] * Us[i]
         end
-        
     end
     return ψ2
 end
 
-function randomize_links(ψ; kwargs...)
+function randomize_links(ψ; linkdim=nothing, kwargs...)
     ls = linkinds(ψ)
-    Us = [random_unitary_tensor(l, l'; kwargs...) for l in ls]
+    if linkdim === nothing
+        ls2 = [Index(l.space, l.tags) for l in ls]
+    else
+        ls2 = [Index(linkdim, l.tags) for l in ls]
+    end
+    
+    Us = [random_unitary_tensor(l, l2; kwargs...) for (l, l2) in zip(ls, ls2)]
     ψo = apply_link_unitaries(ψ, Us)
-    ψo = prime(ψo, -1, linkinds(ψo))
-    fix_indices!(ψo, ψ)
+    #fix_indices!(ψo, ψ)
     return ψo
 end

@@ -66,6 +66,9 @@ energy_error(Es::EnergySummary) = Es.std_of_mean / sqrt(length(Es))
 energy_var_error(Es::EnergySummary) = Es.std_of_var / sqrt(length(Es))
 
 function centered(Es::EnergySummary; mode=:importance_sqrt)
+    if Es.importance_weights === nothing
+        return Es.data
+    end
     if mode == :importance_sqrt
         return Es.data
     elseif mode == :importance

@@ -34,7 +34,6 @@ function fix_indices!(ψ1::Union{MPS, Vector{ITensor}}, ψ2::MPS)
     for i in 1:length(ψ1)
         ψ1[i] = fix_indices(ψ1[i], ψ2[i])
     end
-
     return ψ1
 end
 

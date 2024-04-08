@@ -29,6 +29,19 @@ function (solver::AbstractSolver)(sr::NaturalGradient; method=:auto, kwargs...)
     return sr
 end
 
+
+function (solver::AbstractSolver)(M::AbstractMatrix, v::AbstractArray, double::Bool; method=:auto, kwargs...)
+    if double
+        return solver(M, v)
+    end
+    
+    if method === :T || (method === :auto && size(M, 1) < size(M, 2))
+        return M' * solver(M * M', v)
+    else
+        return solver(M' * M, M' * v)
+    end
+end
+
 abstract type AbstractCompositeSolver <: AbstractSolver end
 
 function (solver::AbstractCompositeSolver)(M::Matrix, v::Vector)
