@@ -26,7 +26,7 @@ end
 MPS_tuple = NamedTuple{(:data, :llim, :rlim), Tuple{Vector{ITensor}, Nothing, Nothing}}
     
 function fix_indices(t1::ITensor, t2::ITensor)
-    perm = Tuple(ITensors.getperm(inds(t1), inds(t2)))
+    perm = Tuple(ITensors.getperm(inds(t2), inds(t1)))
     return ITensor(ITensors.permutedims(t1.tensor, perm))
 end
 

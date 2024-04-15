@@ -9,11 +9,15 @@ end
 
 EnergySummary(ψ::MPS, H::MPO; sample_nr=1000) = EnergySummary([Ek(ψ, H) for _ in 1:sample_nr])
 
-function EnergySummary(Eks::Vector{Complex{Float64}}; importance_weights=nothing)
+function EnergySummary(Eks::Vector{Complex{Float64}}; importance_weights=nothing, mean_=nothing, var_=nothing)
     if any(imag.(Eks) .> 1e-10)
-        mean_ = wmean(Eks; weights=importance_weights)
+        if mean_ === nothing
+            mean_ = wmean(Eks; weights=importance_weights)
+        end
         Eks_c = Eks .- mean_
-        var_ = wvar(Eks_c; weights=importance_weights)
+        if var_ === nothing
+            var_ = wvar(Eks_c; weights=importance_weights)
+        end
 
         local std_of_mean
         if importance_weights !== nothing
@@ -30,9 +34,11 @@ function EnergySummary(Eks::Vector{Complex{Float64}}; importance_weights=nothing
     return EnergySummary(real.(Eks); importance_weights)
 end
 
-function EnergySummary(Eks::Vector{Float64}; importance_weights=nothing)
-    local mean_, std_of_var
-    mean_, var_ = wmean_and_var(Eks; weights=importance_weights)
+function EnergySummary(Eks::Vector{Float64}; importance_weights=nothing, mean_=nothing, var_=nothing)
+    local std_of_var
+    if mean_ === nothing || var_ === nothing
+        mean_, var_ = wmean_and_var(Eks; weights=importance_weights)
+    end
     Eks_c = real.(Eks .- mean_)
 
     local std_of_mean

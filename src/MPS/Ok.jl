@@ -43,3 +43,9 @@ function Ok(ψ::MPS, dψ::MPS)
     end
     return grads
 end
+
+function ITensors.sample(ψ::MPS, sample_nr::Integer)
+    ψo = orthogonalize(ψ, 1)
+    ψo[1] ./= norm(ψo[1])
+    return [sample(ψo) for _ in 1:sample_nr::Integer]
+end

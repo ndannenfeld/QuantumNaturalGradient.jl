@@ -65,8 +65,10 @@ function threaded_mean(arr::Vector{T}; weights=nothing) where T
     return sum(sums) ./ length(arr)
 end
 
-function convert_to_matrix_without_mean(m::Vector{Vector{T}}; kwargs...) where T <: Number
-    mean_ = threaded_mean(m)
+function convert_to_matrix_without_mean(m::Vector{Vector{T}}; mean_=nothing, kwargs...) where T <: Number
+    if mean_ === nothing
+        mean_ = threaded_mean(m)
+    end
 
     l2 = length(m[1])
     M = Matrix{T}(undef, length(m), l2)

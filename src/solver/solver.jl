@@ -9,9 +9,8 @@ end
 
 function solve_T(solver::AbstractSolver, GT::SparseGeometricTensor, Es::EnergySummary; kwargs...)
     GTd = dense_T(GT)
-
     Ekms = centered(Es)
-    #println("Ekms = ", Ekms)
+
     θdot_raw = -solver(GTd, Ekms; kwargs...)
     θdot = centered(GT)' * θdot_raw
 
@@ -22,7 +21,7 @@ function (solver::AbstractSolver)(sr::NaturalGradient; method=:auto, kwargs...)
     if method === :T || (method === :auto && size(sr.GT, 1) < size(sr.GT, 2))
         sr.θdot = solve_T(solver, sr.GT, sr.Es; kwargs...)
     else
-        sr.θdot = solve_S(solver, sr.GT, sr.grad ./ 2; kwargs...)
+        sr.θdot = solve_S(solver, sr.GT, get_gradient(sr) ./ 2; kwargs...)
     end
     
     tdvp_error!(sr)
