@@ -41,3 +41,4 @@ function (solver::EigenSolver)(M::AbstractMatrix, v::AbstractArray)
 
     return o
 end
+

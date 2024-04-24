@@ -4,13 +4,13 @@ struct SparseGeometricTensor{T <: Number}
     importance_weights::Union{Vector{<:Real}, Nothing}
     function SparseGeometricTensor(m::AbstractMatrix{T}; importance_weights=nothing, mean_=nothing) where T <: Number
         if mean_ === nothing
-            data_mean = wmean(m; weights=importance_weights, dims=1)[1, :]
+            data_mean = wmean(m; weights=importance_weights, dims=1)
         else
-            data_mean = mean_
+            data_mean = reshape(mean_, 1, :)
         end
         
         m = m .- data_mean
-        return SparseGeometricTensor(m, data_mean; importance_weights)
+        return SparseGeometricTensor(m, data_mean[1, :]; importance_weights)
     end
     function SparseGeometricTensor(m::AbstractMatrix{T}, data_mean::Vector{T}; importance_weights=nothing) where T <: Number
         if importance_weights !== nothing
