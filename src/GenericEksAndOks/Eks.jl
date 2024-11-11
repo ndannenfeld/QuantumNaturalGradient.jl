@@ -64,11 +64,20 @@ function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilber
 
             sum_precompute[key] += vi
             
-            if sum_precompute[key] == 0.
-                delete!(sum_precompute, key)
-            end
         end
     end
+
+    # Make real if the imaginary part is too small
+    for (key, value) in sum_precompute
+        if value isa Complex && abs(imag(value))/(abs(real(value))+1e-10) < 1e-14
+            sum_precompute[key] = real(value)
+        end
+
+        if sum_precompute[key] == 0.
+            delete!(sum_precompute, key)
+        end
+    end 
+
     return sum_precompute
 end
 
