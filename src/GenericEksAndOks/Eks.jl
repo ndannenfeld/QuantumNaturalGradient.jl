@@ -97,9 +97,9 @@ function get_diff(sample_orig, sample_shifted, sites)
     return diffs
 end
 
-function get_precomp_sOψ_elems(Vector{TensorOperatorSum}, sample_::Array; sum_precompute = DefaultOrderedDict(()->0.), offset=1, get_flip_sites=false)
-    for tso in Vector{TensorOperatorSum}
-        sum_precompute = get_precomp_sOψ_elems(tso, sample_; sum_precompute, offset, get_flip_sites)
+function get_precomp_sOψ_elems(tso::Vector{TensorOperatorSum}, sample_::Array; sum_precompute = DefaultOrderedDict(()->0.), offset=1, get_flip_sites=false)
+    for tso_i in tso
+        sum_precompute = get_precomp_sOψ_elems(tso_i, sample_; sum_precompute, offset, get_flip_sites)
     end
     return sum_precompute
 end
