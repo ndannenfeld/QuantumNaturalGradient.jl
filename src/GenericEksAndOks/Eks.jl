@@ -37,13 +37,13 @@ get_precomp_sOψ_elems(
     sites::Vector, 
     sample_, 
     hilbert; 
-    sum_precompute = DefaultOrderedDict(()->0.), 
+    sum_precompute = DefaultOrderedDict(()->0), 
     offset=1, 
     get_flip_sites=false # If true, it will give a Dictionary Dict(sites_flipped=>energy_weight) instead of Dict(s'=>energy_weight)
     sites_fliiped: First index is the site, second the new s'_i.
 )
 """
-function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilbert; sum_precompute = DefaultOrderedDict(()->0.), offset=1, get_flip_sites=false)
+function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilbert; sum_precompute=DefaultOrderedDict(()->0), offset=1, get_flip_sites=false)
     sample_r = sample_[sites]
     hilbert_r = hilbert[sites]
     
@@ -61,7 +61,6 @@ function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilber
                 sample_M[sites] .= sample_r2
                 key = sample_M
             end
-
             sum_precompute[key] += vi
             
         end
@@ -97,7 +96,7 @@ function get_diff(sample_orig, sample_shifted, sites)
     return diffs
 end
 
-function get_precomp_sOψ_elems(tso::Vector{TensorOperatorSum}, sample_::Array; sum_precompute = DefaultOrderedDict(()->0.), offset=1, get_flip_sites=false)
+function get_precomp_sOψ_elems(tso::Vector{TensorOperatorSum}, sample_::Array; sum_precompute = DefaultOrderedDict(()->0), offset=1, get_flip_sites=false)
     for tso_i in tso
         sum_precompute = get_precomp_sOψ_elems(tso_i, sample_; sum_precompute, offset, get_flip_sites)
     end
@@ -105,7 +104,7 @@ function get_precomp_sOψ_elems(tso::Vector{TensorOperatorSum}, sample_::Array; 
 end
 
 
-function get_precomp_sOψ_elems(tso::TensorOperatorSum, sample_::Array; sum_precompute = DefaultOrderedDict(()->0.), offset=1, get_flip_sites=false)
+function get_precomp_sOψ_elems(tso::TensorOperatorSum, sample_::Array; sum_precompute=DefaultOrderedDict(()->0), offset=1, get_flip_sites=false)
     @assert size(sample_) == size(tso)
     sample_ = sample_[:] # Flatten the sample
     for (tensor, sites) in zip(tso.tensors, tso.sites)
@@ -182,19 +181,23 @@ function increase_dim(t::Integer, size::Tuple)
 end
 
 function increase_dim(sum_precompute, size_; get_flip_sites=false)
-    sum_precompute2 = DefaultOrderedDict(()->0.)
+    sum_precompute2 = DefaultOrderedDict(()->0)
     if !get_flip_sites
         for (sample__, v) in sum_precompute
-            sum_precompute2[reshape(sample__, size_)] = v
+            sum_precompute2[reshape(sample__, size_)] += v
         end
     elseif get_flip_sites
         for (diff, v) in sum_precompute
-            diff_res = []
-            for (i, s) in diff
-                push!(diff_res, (increase_dim(i, size_), s))
+            if diff isa Tuple
+                sum_precompute2[diff] += v
+            else
+                diff_res = []
+                for (i, s) in diff
+                    push!(diff_res, (increase_dim(i, size_), s))
+                end
+                diff_res = Tuple(diff_res)
+                sum_precompute2[diff_res] += v
             end
-            
-            sum_precompute2[diff_res] = v
         end
     end
     return sum_precompute2
