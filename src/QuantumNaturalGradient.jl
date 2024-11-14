@@ -12,6 +12,7 @@ using Random
 using TimerOutputs
 using Parameters
 using JLD2
+using LogExpFunctions
 
 using Zygote
 

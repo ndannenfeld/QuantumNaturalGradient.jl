@@ -55,11 +55,11 @@ function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilber
         vi = tensor[indices...] # <s'|O|s>
         if vi != 0.
             if get_flip_sites
-                key = get_diff(sample_r, sample_r2, sites)
+                key = find_flip_site(sample_r .- offset, sample_r2 .- offset, sites)
             else
                 sample_M = deepcopy(sample_)
                 sample_M[sites] .= sample_r2
-                key = sample_M
+                key = sample_M .- offset
             end
             sum_precompute[key] += vi
             
@@ -81,12 +81,12 @@ function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilber
 end
 
 """
-get_diff([1, 2], [2,2], [4, 5])
+find_flip_site([1, 2], [2,2], [4, 5])
 
 1-element Vector{Any}:
  (4, 2)
 """
-function get_diff(sample_orig, sample_shifted, sites)
+function find_flip_site(sample_orig, sample_shifted, sites)
     diffs = []
     for (i, s_orig, s_shift) in zip(sites, sample_orig, sample_shifted)
         if s_orig != s_shift
@@ -94,6 +94,14 @@ function get_diff(sample_orig, sample_shifted, sites)
         end
     end
     return diffs
+end
+
+function apply_flip_site(sample, patch)
+    sample_c = copy(sample)
+    for (index, value) in patch
+        sample_c[index...] = value
+    end
+    return sample_c
 end
 
 function get_precomp_sOψ_elems(tso::Vector{TensorOperatorSum}, sample_::Array; sum_precompute = DefaultOrderedDict(()->0), offset=1, get_flip_sites=false)
@@ -104,9 +112,11 @@ function get_precomp_sOψ_elems(tso::Vector{TensorOperatorSum}, sample_::Array; 
 end
 
 
-function get_precomp_sOψ_elems(tso::TensorOperatorSum, sample_::Array; sum_precompute=DefaultOrderedDict(()->0), offset=1, get_flip_sites=false)
+function get_precomp_sOψ_elems(tso::TensorOperatorSum, sample_::Array{T, N}; sum_precompute=DefaultOrderedDict(()->0), offset=1, get_flip_sites=false) where {T <: Int, N}
     @assert size(sample_) == size(tso)
     sample_ = sample_[:] # Flatten the sample
+    sample_ = sample_ .+ offset # Shift the sample from 0...N-1 to 1...N
+    @assert all(sample_ .> 0) "Sample must be composed of positive integers instead of $sample_"
     for (tensor, sites) in zip(tso.tensors, tso.sites)
         get_precomp_sOψ_elems!(tensor, sites, sample_, tso.hilbert[:]; sum_precompute, offset, get_flip_sites)
     end
