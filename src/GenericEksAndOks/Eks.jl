@@ -74,7 +74,7 @@ function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilber
     
     indices_sample = collect(hi' => s for (hi, s) in zip(hilbert_r, sample_r)) # Selects the indices that act on the tensor from the left O|s>
     
-    tensor_proj = onehot(indices_sample) * tensor
+    tensor_proj = onehot(indices_sample) * tensor # <s'|T
     
     # Make sure that the indices have the right permutation
     perm = NDTensors.getperm(ITensors.inds(tensor_proj), hilbert_r)
@@ -154,7 +154,7 @@ function get_precomp_sOψ_elems(tso::TensorOperatorSum, sample_::Array{T, N}; su
     
     # If not 1D, reshape the samples
     if ndims(tso) > 1
-        sum_precompute = increase_dim(sum_precompute, size(tso); get_flip_sites)
+        sum_precompute = increase_dim(sum_precompute, size(tso))
     end
     return sum_precompute
 end
@@ -222,24 +222,31 @@ function increase_dim(t::Integer, size::Tuple)
     return tuple(t...)
 end
 
-function increase_dim(sum_precompute, size_; get_flip_sites=false)
+function increase_dim(ts::Tuple, size::Tuple)
+    if length(ts) == length(size)
+        return ts
+    elseif length(ts) == 1
+        return increase_dim(ts[1], size)
+    else
+        error("Not Implemented")
+    end
+end
+
+
+function increase_dim(sum_precompute::DefaultOrderedDict, size_)
     sum_precompute2 = DefaultOrderedDict(()->0)
-    if !get_flip_sites
-        for (sample__, v) in sum_precompute
-            sum_precompute2[reshape(sample__, size_)] += v
-        end
-    elseif get_flip_sites
-        for (diff, v) in sum_precompute
-            if diff isa Tuple
-                sum_precompute2[diff] += v
-            else
-                diff_res = []
-                for (i, s) in diff
-                    push!(diff_res, (increase_dim(i, size_), s))
-                end
-                diff_res = Tuple(diff_res)
-                sum_precompute2[diff_res] += v
+    for (obj, v) in sum_precompute
+        if obj isa Tuple
+            diff = obj
+            diff_res = []
+            for (i, s) in diff
+                push!(diff_res, (increase_dim(i, size_), s))
             end
+            diff_res = Tuple(diff_res)
+            sum_precompute2[diff_res] += v
+        else
+            sample__ = diff
+            sum_precompute2[reshape(sample__, size_)] += v
         end
     end
     return sum_precompute2
