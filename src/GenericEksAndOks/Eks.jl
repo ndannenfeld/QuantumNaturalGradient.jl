@@ -142,6 +142,7 @@ function get_precomp_sOψ_elems(tso::TensorOperatorSum, sample_::Array{T, N}; su
         end
     end
 
+    # If get_flip_sites is false it will compute the samples with the flipped sites applied to it
     if !get_flip_sites
         for (diff, v) in sum_precompute
             if diff isa Tuple

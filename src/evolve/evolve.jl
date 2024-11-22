@@ -76,7 +76,7 @@ function evolve(Oks_and_Eks_, θ::T;
     save_ng=false,
     misc_restart=nothing,
     discard_outliers=0.,
-    transform_θ=x->x, transform_ng=(args...) -> args,
+    transform=(args...) -> args,
     timer=TimerOutput()
     ) where {T}
     if lr !== nothing
@@ -128,7 +128,7 @@ function evolve(Oks_and_Eks_, θ::T;
         θ, ng = @timeit timer "integrator" integrator(θ, Oks_and_Eks_; sample_nr, solver, discard_outliers, timer, dynamic_kwargs...)
 
         # Transform ng
-        ng, Oks_and_Eks_, solver, sample_nr = transform_ng(ng, Oks_and_Eks_, solver, sample_nr)
+        θ, ng, Oks_and_Eks_, solver, sample_nr = transform(θ, ng, Oks_and_Eks_, solver, sample_nr)
 
         # Compute energy
         energy = real(mean(ng.Es))
@@ -144,9 +144,6 @@ function evolve(Oks_and_Eks_, θ::T;
         if save_rng
             history_rng[niter] = copy(Random.default_rng())
         end
-
-        # Transform θ
-        θ = transform_θ(θ)
 
         # Callback
         misc = Dict("energy" => energy, "niter" => niter, "history" => history[1:niter, :],
