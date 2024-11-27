@@ -113,7 +113,7 @@ end
 function NaturalGradient(θ::Vector, Oks_and_Eks; sample_nr=100, timer=TimerOutput(), kwargs_Oks_and_Eks=Dict(), kwargs...)
     out = @timeit timer "Oks_and_Eks" Oks_and_Eks(θ, sample_nr; kwargs_Oks_and_Eks...)
     kwargs = Dict{Any, Any}(kwargs...)
-    saved_properties = Dict{Any, Any}()
+    saved_properties = Dict{:Symbol, Any}()
 
     if haskey(out, :Eks)
         Eks = out[:Eks]
