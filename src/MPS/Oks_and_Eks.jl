@@ -86,8 +86,8 @@ function generate_Oks_and_Eks_parallel(construct_mps, H::MPO;
         Eks = [Oks_Eks[i][1][2] for i in 1:length(Oks_Eks)]
         logψs = [Oks_Eks[i][1][3] for i in 1:length(Oks_Eks)]
         samples = [Oks_Eks[i][2] for i in 1:length(Oks_Eks)]
-
-        return Oks, Eks, logψs, samples
+        
+        return Dict(:Oks => Oks, :Eks => Eks, :logψs => logψs, :samples => samples)
     end
 
     return Oks_and_Eks_parallel

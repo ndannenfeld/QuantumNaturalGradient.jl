@@ -238,3 +238,6 @@ function step!(o::OptimizationState, dynamic_kwargs)
     o.niter += 1
     return true
 end
+
+include("heun.jl")
+include("decay.jl")
