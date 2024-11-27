@@ -76,12 +76,13 @@ mutable struct NaturalGradient{T <: Number}
     θdot
     tdvp_error::Union{Real, Nothing}
     importance_weights::Union{Vector{<:Real}, Nothing}
+    saved_properties
     function NaturalGradient(samples, GT::SparseGeometricTensor{T}, Es::EnergySummary,
          logψσs::Vector{Complex{Float64}}, θdot=nothing,
           tdvp_error::Union{Float64, Nothing}=nothing;
-          importance_weights=nothing, grad=nothing) where {T <: Number}
+          importance_weights=nothing, grad=nothing, saved_properties=nothing) where {T <: Number}
 
-        return new{T}(samples, GT, Es, logψσs, grad, θdot, tdvp_error, importance_weights)
+        return new{T}(samples, GT, Es, logψσs, grad, θdot, tdvp_error, importance_weights, saved_properties)
     end
 end
 function convert_to_vector(samples::Matrix{T}) where T <: Integer
@@ -112,14 +113,38 @@ end
 function NaturalGradient(θ::Vector, Oks_and_Eks; sample_nr=100, timer=TimerOutput(), kwargs_Oks_and_Eks=Dict(), kwargs...)
     out = @timeit timer "Oks_and_Eks" Oks_and_Eks(θ, sample_nr; kwargs_Oks_and_Eks...)
     kwargs = Dict{Any, Any}(kwargs...)
+    saved_properties = Dict{Any, Any}()
 
-    if length(out) == 4
-        Oks, Eks, logψσs, samples = out
-    elseif length(out) == 5
-        Oks, Eks, logψσs, samples, kwargs[:importance_weights] = out
-    else 
-        error("Oks_and_Eks should return 4 or 5 values. If 4 are returned, importance_weights is assumed to be  equal to 1.")
+    if haskey(out, :Eks)
+        Eks = out[:Eks]
+    else error("Oks_and_Eks should return Dict with key :Eks") end
+    if haskey(out, :Oks)
+        Oks = out[:Oks]
+    else error("Oks_and_Eks should return Dict with key :Oks") end
+    if haskey(out, :logψs)
+        logψσs = out[:logψs]
+    else error("Oks_and_Eks should return Dict with key :logψs") end
+    if haskey(out, :samples)
+        samples = out[:samples]
+    else error("Oks_and_Eks should return Dict with key :samples") end
+    if haskey(out, :weights)
+        kwargs[:importance_weights] = out[:weights]
     end
+
+    for key in keys(out)
+        if !(key in [:Eks, :Oks, :logψs, :samples, :weights])
+            saved_properties[key] = out[key]
+        end
+    end
+    kwargs[:saved_properties] = saved_properties
+
+    #if length(out) == 4
+    #    Oks, Eks, logψσs, samples = out
+    #elseif length(out) == 5
+    #    Oks, Eks, logψσs, samples, kwargs[:importance_weights] = out
+    #else 
+    #    error("Oks_and_Eks should return 4 or 5 values. If 4 are returned, importance_weights is assumed to be  equal to 1.")
+    #end
 
     if Oks isa Tuple
         @assert length(Oks) == 2 "Oks should be a Tuple with 2 elements, Oks and Oks_mean"
@@ -136,7 +161,7 @@ end
 
 function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
     importance_weights=nothing, Eks_mean=nothing, Eks_var=nothing, Oks_mean=nothing,
-    solver=nothing, discard_outliers=0., timer=TimerOutput(), verbose=true) 
+    solver=nothing, discard_outliers=0., timer=TimerOutput(), verbose=true, saved_properties=nothing) 
 
     if importance_weights !== nothing
         importance_weights ./= mean(importance_weights)
@@ -149,7 +174,7 @@ function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
     Es = EnergySummary(Eks; importance_weights, mean_=Eks_mean, var_=Eks_var)
     GT = @timeit timer "copy Oks" SparseGeometricTensor(Oks; importance_weights, mean_=Oks_mean)
 
-    sr = NaturalGradient(samples, GT, Es, logψσs; importance_weights)
+    sr = NaturalGradient(samples, GT, Es, logψσs; importance_weights, saved_properties)
 
     if solver !== nothing
         @timeit timer "solver" solver(sr)

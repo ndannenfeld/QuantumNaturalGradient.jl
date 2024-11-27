@@ -49,3 +49,15 @@ ng = NaturalGradient(θ, Oks_and_Eks; sample_nr=100)
 ```
 
 This allows for more granular control and inspection of the gradient for advanced use cases.
+
+### Logger functions
+
+One keyword argument of the evolve function is logger_funcs, which accepts functions whichs output gets saved in every iteration. E.g.:
+
+```julia
+logger_funcs = []
+history_params(; θ_old) = θ_old
+push!(logger_funcs, history_params)
+```
+
+This will save the whole parameter array at every step of the optimization. As of now the keywordarguments which are supported for the logger-functions are: gradient, θ, niter, energy, norm_grad, norm_θ, θ_old, max_contract_dim
