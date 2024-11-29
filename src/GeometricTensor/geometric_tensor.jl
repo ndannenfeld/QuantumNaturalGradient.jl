@@ -26,10 +26,13 @@ end
 
 Base.size(GT::SparseGeometricTensor) = size(GT.data)
 Base.size(GT::SparseGeometricTensor, i) = size(GT.data, i)
+nr_parameters(GT::SparseGeometricTensor) = size(GT.data, 1)
+nr_samples(GT::SparseGeometricTensor) = size(GT.data, 2)
+
 Base.length(GT::SparseGeometricTensor) = size(GT.data, 1)
 function get_importance_weights(GT::SparseGeometricTensor)
     if GT.importance_weights === nothing
-        return ones(length(GT))
+        return ones(nr_samples(GT))
     else
         return GT.importance_weights
     end
@@ -113,7 +116,7 @@ end
 function NaturalGradient(θ::Vector, Oks_and_Eks; sample_nr=100, timer=TimerOutput(), kwargs_Oks_and_Eks=Dict(), kwargs...)
     out = @timeit timer "Oks_and_Eks" Oks_and_Eks(θ, sample_nr; kwargs_Oks_and_Eks...)
     kwargs = Dict{Any, Any}(kwargs...)
-    saved_properties = Dict{:Symbol, Any}()
+    saved_properties = Dict{Symbol, Any}()
 
     if haskey(out, :Eks)
         Eks = out[:Eks]

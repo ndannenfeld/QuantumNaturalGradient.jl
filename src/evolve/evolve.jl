@@ -30,34 +30,33 @@ end
 # Euler integrator step function
 function (integrator::Euler)(θ::AbstractVector, Oks_and_Eks_; kwargs...)
     if kwargs[:timer] !== nothing 
-        ng = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ, Oks_and_Eks_; kwargs...) 
+        natural_gradient = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ, Oks_and_Eks_; kwargs...) 
     else
-        ng = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
+        natural_gradient = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
     end
-    g = get_θdot(ng; θtype=eltype(θ))
+    g = get_θdot(natural_gradient; θtype=eltype(θ))
     if integrator.use_clipping
         clamp_and_norm!(g, integrator.clip_val, integrator.clip_norm)
     end
     θ = θ .+ integrator.lr .* g
     integrator.step += 1
-    return θ, ng
+    return θ, natural_gradient
 end
 
 # Initialize and manage the optimization state
 mutable struct OptimizationState
     Oks_and_Eks::Function
     callback::Function
+    transform!::Function
     θ
     integrator::AbstractIntegrator
-    solver
+    solver::AbstractSolver
     energy::Real
-    gradient
     niter::Int
     history::DataFrame
     timer::TimerOutput
     discard_outliers
-    transform
-    sample_nr
+    sample_nr::Int
     maxiter::Int
     gradtol::Real
     verbosity::Int
@@ -74,19 +73,20 @@ function OptimizationState(Oks_and_Eks, θ::T, integrator;
     sample_nr=1000, 
     solver=EigenSolver(1e-6),
     callback=(args...; kwargs...) -> nothing, 
+    transform! = (o, x) -> x,
     logger_funcs=[], 
     misc_restart=nothing, 
-    timer=TimerOutput(), discard_outliers=0, transform=(args...) -> args, maxiter=50, gradtol=1e-10, verbosity=0) where {T}
+    timer=TimerOutput(), discard_outliers=0, maxiter=50, gradtol=1e-10, verbosity=0) where {T}
     
     energy(; energy) = energy
-    norm_grad(; norm_grad) = norm_grad
+    norm_natgrad(; norm_natgrad) = norm_natgrad
     norm_θ(; norm_θ) = norm_θ
     niter(; niter) = niter
 
-    history = Observer(niter, energy, norm_grad, norm_θ, logger_funcs...)
+    history = Observer(niter, energy, norm_natgrad, norm_θ, logger_funcs...)
     state = OptimizationState(
-        Oks_and_Eks, callback, θ, integrator, solver,
-        1e10, nothing, 1, history, timer, discard_outliers, transform, sample_nr, maxiter, gradtol, verbosity
+        Oks_and_Eks, callback, transform!, θ, integrator, solver,
+        1e10, 1, history, timer, discard_outliers, sample_nr, maxiter, gradtol, verbosity
     )
     
     if misc_restart !== nothing
@@ -142,12 +142,12 @@ function evolve(Oks_and_Eks_, θ::T;
     maxiter=10, 
     sample_nr=1000,
     callback=(args...; kwargs...) -> nothing, 
+    transform! = (o, x) -> x,
     verbosity=0,
     logger_funcs=[], 
     copy=true, 
     misc_restart=nothing, 
     discard_outliers=0.,
-    transform=(args...) -> args,
     timer=TimerOutput(), gradtol=1e-10) where {T}
 
     if copy
@@ -162,10 +162,11 @@ function evolve(Oks_and_Eks_, θ::T;
         sample_nr,
         solver,
         callback, 
+        transform!,
         logger_funcs, 
         misc_restart,
         timer=timer, discard_outliers,
-        transform, maxiter, gradtol, verbosity
+        maxiter, gradtol, verbosity
     )
 
     return evolve!(state)
@@ -195,31 +196,22 @@ function step!(o::OptimizationState, dynamic_kwargs)
         return false
     end
 
-    θ, o.gradient = @timeit o.timer "integrator" o.integrator(o.θ, o.Oks_and_Eks; sample_nr=o.sample_nr, solver=o.solver, discard_outliers=o.discard_outliers, timer=o.timer, dynamic_kwargs...)
+    o.θ, natural_gradient = @timeit o.timer "integrator" o.integrator(o.θ, o.Oks_and_Eks; sample_nr=o.sample_nr, solver=o.solver, discard_outliers=o.discard_outliers, timer=o.timer, dynamic_kwargs...)
     
-    # Transform θ and ng
-    θ, o.gradient, o.Oks_and_Eks, o.solver, o.sample_nr = o.transform(θ, o.gradient, o.Oks_and_Eks, o.solver, o.sample_nr)
-
-    dict_save = Dict()
+    # Transform the optimization state and natural_gradient
+    natural_gradient = o.transform!(o, natural_gradient)
     
-    o.energy = real(mean(o.gradient.Es))
-    
-    norm_grad = norm(get_θdot(o.gradient; θtype=eltype(θ)))
-
-    norm_θ = norm(θ)
+    o.energy = real(mean(natural_gradient.Es))
+    norm_natgrad = norm(get_θdot(natural_gradient; θtype=eltype(o.θ)))
+    norm_θ = norm(o.θ)
 
     # Saving the energy and other variables
-    dict_save[:θ_old] = o.θ
-
-    Observers.update!(o.history; gradient=o.gradient, θ=θ, niter=o.niter, energy=o.energy, norm_grad, norm_θ, dict_save..., o.gradient.saved_properties...)
-
-
-    o.θ = θ
+    Observers.update!(o.history; natural_gradient, θ=o.θ, niter=o.niter, energy=o.energy, norm_natgrad, norm_θ, natural_gradient.saved_properties...)
 
     stop = o.callback(; energy_value=o.energy, model=o.θ, misc=o.history, niter=o.niter)
 
     if o.verbosity >= 2
-        @info "iter $(o.niter): $(o.gradient.Es), ‖∇f‖ = $(norm_grad), ‖θ‖ = $(norm_θ), tdvp_error = $(o.gradient.tdvp_error)"
+        @info "iter $(o.niter): $(natural_gradient.Es), ‖θdot‖ = $(norm_natgrad), ‖θ‖ = $(norm_θ), tdvp_error = $(natural_gradient.tdvp_error)"
         flush(stdout)
         flush(stderr)
     end
@@ -228,7 +220,7 @@ function step!(o::OptimizationState, dynamic_kwargs)
         return false
     end
 
-    if norm_grad < o.gradtol
+    if norm_natgrad < o.gradtol
         if o.verbosity >= 1
             @info "$(typeof(o.integrator)): Gradient tolerance reached"
         end

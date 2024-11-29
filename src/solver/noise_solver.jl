@@ -8,7 +8,7 @@ function (solver::NoiseSolver)(sr::NaturalGradient; method=:auto, kwargs...)
     Es_noisy = sr.Es.data + randn(length(sr.Es)) * solver.σ
     Es_noisy = EnergySummary(Es_noisy)
 
-    if method === :T || (method === :auto && size(sr.GT, 1) < size(sr.GT, 2))
+    if method === :T || (method === :auto && nr_parameters(GT) < nr_samples(GT))
         sr.θdot = solve_T(solver, sr.GT, Es_noisy; kwargs...)
     else
         Ekms = centered(Es_noisy)

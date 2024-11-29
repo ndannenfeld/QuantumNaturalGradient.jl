@@ -10,13 +10,23 @@ Before you begin, ensure that you have a working implementation of the function 
 
 ### Function Output Format
 
-Your implementation of `Oks_and_Eks` should return a tuple with the following elements:
+The `Oks_and_Eks` function should now return a dictionary. Required fields:
 
-- `::Matrix` - The gradient of `<s|psi>` with respect to `θ`, normalized by `<s|psi>`.
-- `::Vector` - The expectation value of the Hamiltonian, `<s|H|psi>/<s|psi>`.
-- `logψσs` - The logarithm of `<s|psi>`, useful for debugging. If not needed, return `zeros(sample_nr)`.
-- `samples::Vector{Int}` - The sampled samples, useful for debugging. If not needed, return `zeros(Int, sample_nr)`.
-- (Optional) `::Vector{Float}` - If you're employing importance sampling $p(s)\neq ||\psi(s)||^2$, provide the squared absolute value of `||<s|psi>||^2/p(s)`. Otherwise, this can be omitted.
+- **`:Oks`** (`Matrix`): Gradient of `<s|ψ>` w.r.t. `θ`, normalized by `<s|ψ>`. Dimensions: `(sample_nr, length(θ))`.
+- **`:Eks`** (`Vector`): Expectation value of `<s|H|ψ>/<s|ψ>`.  
+- **`:logψs`** (`Vector`): Logarithm of `<s|ψ>` (or `zeros(sample_nr)` if unused).  
+- **`:samples`** (`Vector{Int}`): Sampled configurations (or `zeros(Int, sample_nr)` if unused).  
+- **`:weights`** (`Vector{Float}`): Importance sampling weights, i.e., `||<s|ψ>||^2 / p(s)` (optional).
+
+#### Example Output
+```julia
+Dict(
+    :Oks => Oks,
+    :Eks => Eks,
+    :logψs => logψs,
+    :samples => samples
+)
+```
 
 ### Imaginary Time Evolution
 
@@ -50,14 +60,28 @@ ng = NaturalGradient(θ, Oks_and_Eks; sample_nr=100)
 
 This allows for more granular control and inspection of the gradient for advanced use cases.
 
-### Logger functions
+Here’s an improved version of the text with better formatting and readability:
 
-One keyword argument of the evolve function is logger_funcs, which accepts functions whichs output gets saved in every iteration. E.g.:
+---
+
+### Logger Functions
+
+The `evolve` function accepts a keyword argument `logger_funcs`, which is a list of functions whose outputs are saved after every iteration. For example:
 
 ```julia
 logger_funcs = []
-history_params(; θ_old) = θ_old
+history_params(; θ) = θ
 push!(logger_funcs, history_params)
 ```
 
-This will save the whole parameter array at every step of the optimization. As of now the keywordarguments which are supported for the logger-functions are: gradient, θ, niter, energy, norm_grad, norm_θ, θ_old, max_contract_dim
+In this example, the `history_params` function saves the parameters `θ` after each optimization step.
+
+Currently supported variables include:
+- `natural_gradient` (The natural gradient object)
+- `θ` (parameters)
+- `niter` (number of current iteration)
+- `energy` (current energy)
+- `norm_natgrad` (norm of the natural gradient)
+- `norm_θ` (norm of the parameters)
+
+Additionally, you can log any parameters output by the `Oks_and_Eks` function.

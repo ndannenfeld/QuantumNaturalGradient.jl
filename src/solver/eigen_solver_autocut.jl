@@ -9,7 +9,7 @@ mutable struct EigenSolverAutocut <: AbstractSolver
 end
 
 function (solver::EigenSolverAutocut)(sr::NaturalGradient; method=:auto, kwargs...)
-    if method === :T || (method === :auto && size(sr.GT, 1) < size(sr.GT, 2))
+    if method === :T || (method === :auto && nr_parameters(GT) < nr_samples(GT))
         sr.θdot = solve_T(solver, sr.GT, sr.Es; kwargs...)
     else
         sr.θdot = solve_S(solver, sr.GT, get_gradient(sr) ./ 2; kwargs...)
