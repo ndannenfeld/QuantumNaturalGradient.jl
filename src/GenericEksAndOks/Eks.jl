@@ -82,7 +82,11 @@ function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilber
     
     inds = findall(x-> x != 0, tensor_proj.tensor)
     for ind in inds
-        sample_r2 = ind.I
+        if length(ind) == 1
+            sample_r2 = ind
+        else
+            sample_r2 = ind.I
+        end
         vi = tensor_proj[ind]
         key = find_flip_site(sample_r .- offset, sample_r2 .- offset, sites)
         sum_precompute[key] += vi
