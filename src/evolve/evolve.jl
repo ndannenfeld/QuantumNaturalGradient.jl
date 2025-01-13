@@ -62,7 +62,7 @@ mutable struct OptimizationState
     verbosity::Int
 end
 
-get_misc(state::OptimizationState) = Dict("energy" => state.energy, "niter" => state.niter, "history" => state.history, "rng" => get_rng())
+#get_misc(state::OptimizationState) = Dict("energy" => state.energy, "niter" => state.niter, "history" => state.history, "rng" => get_rng())
 
 function get_rng()
     t = current_task()
@@ -79,11 +79,12 @@ function OptimizationState(Oks_and_Eks, θ::T, integrator;
     timer=TimerOutput(), discard_outliers=0, maxiter=50, gradtol=1e-10, verbosity=0) where {T}
     
     energy(; energy) = energy
+    var_energy(; var_energy) = var_energy
     norm_natgrad(; norm_natgrad) = norm_natgrad
     norm_θ(; norm_θ) = norm_θ
     niter(; niter) = niter
 
-    history = Observer(niter, energy, norm_natgrad, norm_θ, logger_funcs...)
+    history = Observer(niter, energy, var_energy, norm_natgrad, norm_θ, logger_funcs...)
     state = OptimizationState(
         Oks_and_Eks, callback, transform!, θ, integrator, solver,
         1e10, 1, history, timer, discard_outliers, sample_nr, maxiter, gradtol, verbosity
@@ -184,7 +185,7 @@ function evolve!(state::OptimizationState)
     end
 
     # Collect the results
-    return state.energy, state.θ, get_misc(state)
+    return state.energy, state.θ, state.history
 end
 
 function step!(o::OptimizationState, dynamic_kwargs)
@@ -202,11 +203,12 @@ function step!(o::OptimizationState, dynamic_kwargs)
     natural_gradient = o.transform!(o, natural_gradient)
     
     o.energy = real(mean(natural_gradient.Es))
+    var_energy = real(var(natural_gradient.Es))
     norm_natgrad = norm(get_θdot(natural_gradient; θtype=eltype(o.θ)))
     norm_θ = norm(o.θ)
 
     # Saving the energy and other variables
-    Observers.update!(o.history; natural_gradient, θ=o.θ, niter=o.niter, energy=o.energy, norm_natgrad, norm_θ, natural_gradient.saved_properties...)
+    Observers.update!(o.history; natural_gradient, θ=o.θ, niter=o.niter, energy=o.energy, var_energy, norm_natgrad, norm_θ, natural_gradient.saved_properties...)
 
     stop = o.callback(; energy_value=o.energy, model=o.θ, misc=o.history, niter=o.niter)
 
