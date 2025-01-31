@@ -101,3 +101,27 @@ function Base.show(io::IO, Es::EnergySummary)
 
     print(io, "EnergySummary($E_str, $Evar_str, Nₛ=$(length(Es)))")
 end
+
+
+function EnergySummary(θ::Vector, Eks_; sample_nr=100, timer=TimerOutput(), kwargs_Eks=Dict(), kwargs...)
+    out = @timeit timer "Eks" Eks_(θ, sample_nr; kwargs_Eks...)
+    kwargs = Dict{Any, Any}(kwargs...)
+    saved_properties = Dict{Symbol, Any}()
+    local Eks
+    if haskey(out, :Eks)
+        Eks = out[:Eks]
+    else error("Oks_and_Eks should return Dict with key :Eks") end
+    if haskey(out, :Oks)
+        warning("Oks should not be returned by the Eks function and will be ignored.")
+    end
+    if haskey(out, :weights)
+        kwargs[:importance_weights] = out[:weights]
+    end
+
+    if Eks isa Tuple
+        @assert length(Eks) == 3 "Eks should be a Tuple with 3 elements, Eks, Ek_mean and Ek_var"
+        Eks, kwargs[:Eks_mean], kwargs[:Eks_var] = Eks
+    end
+
+    return EnergySummary(Eks; kwargs...)
+end

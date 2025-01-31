@@ -166,7 +166,7 @@ end
 
 function inner_div_ψ(sample_, tso::TensorOperatorSum, logψ_func; logψ_sample=nothing)
     sum_precompute = get_precomp_sOψ_elems(tso, sample_)
-
+    
     if logψ_sample === nothing
         logψ_sample = logψ_func(sample_)
     end
@@ -241,7 +241,7 @@ end
 function increase_dim(sum_precompute::DefaultOrderedDict, size_)
     sum_precompute2 = DefaultOrderedDict(()->0)
     for (obj, v) in sum_precompute
-        if obj isa Tuple
+        if obj isa Tuple # If it is a tuple, it means that it stores the difference between the original S and the flipped S'
             diff = obj
             diff_res = []
             for (i, s) in diff
@@ -249,9 +249,13 @@ function increase_dim(sum_precompute::DefaultOrderedDict, size_)
             end
             diff_res = Tuple(diff_res)
             sum_precompute2[diff_res] += v
-        else
-            sample__ = diff
+        
+        elseif obj isa AbstractArray # If it is not a tuple, it means that it should stores S'
+            sample__ = obj
             sum_precompute2[reshape(sample__, size_)] += v
+        
+        else
+            error("sum_precompute should be composed of Tuples or AbstractArrays")
         end
     end
     return sum_precompute2
