@@ -90,6 +90,15 @@ function uncentered(Es::EnergySummary)
     return Esd .+ Es.mean
 end
 
+function effective_sample_nr(Es::EnergySummary)
+    if Es.importance_weights === nothing
+        return length(Es)
+    else
+        error = energy_error(Es)
+        return Es.var / error^2
+    end
+end
+
 function Base.show(io::IO, Es::EnergySummary)
     error = energy_error(Es)
     digits = Int(min(ceil(-log10(error)), 10)) + 1
@@ -98,8 +107,13 @@ function Base.show(io::IO, Es::EnergySummary)
     error2 = energy_var_error(Es)
     digits = Int(min(ceil(-log10(error2)), 10)) + 1
     Evar_str = "var(E) = $(round(Es.var, digits=digits)) ± $(round(error2, digits=digits))"
-
-    print(io, "EnergySummary($E_str, $Evar_str, Nₛ=$(length(Es)))")
+    
+    N_eff = effective_sample_nr(Es)
+    N_eff_str = ""
+    if N_eff != length(Es)
+        N_eff_str = ", Nₑ=$(round(Int, N_eff))"
+    end
+    print(io, "EnergySummary($E_str, $Evar_str, Nₛ=$(length(Es))$N_eff_str)")
 end
 
 

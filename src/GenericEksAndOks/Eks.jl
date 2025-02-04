@@ -80,7 +80,7 @@ function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilber
     perm = NDTensors.getperm(ITensors.inds(tensor_proj), hilbert_r)
     tensor_proj = ITensor(permutedims(tensor_proj.tensor, perm))
     
-    inds = findall(x-> x != 0, tensor_proj.tensor)
+    inds = findall(x -> x != 0, tensor_proj.tensor)
     for ind in inds
         if length(ind) == 1
             sample_r2 = ind
@@ -89,6 +89,7 @@ function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilber
         end
         vi = tensor_proj[ind]
         key = find_flip_site(sample_r .- offset, sample_r2 .- offset, sites)
+        # Key is in the format ((site_flipped, s'_i), ...)
         sum_precompute[key] += vi
     end
     
@@ -148,7 +149,7 @@ function get_precomp_sOψ_elems(tso::TensorOperatorSum, sample_::Array{T, N}; su
 
     # If get_flip_sites is false it will compute the samples with the flipped sites applied to it
     if !get_flip_sites
-        for (diff, v) in sum_precompute
+        for (diff, v) in copy(sum_precompute) # Copy to avoid changing the dictionary while iterating
             if diff isa Tuple
                 sample_flipped = apply_flip_site(sample_, diff)
                 sum_precompute[sample_flipped] += v
@@ -159,7 +160,7 @@ function get_precomp_sOψ_elems(tso::TensorOperatorSum, sample_::Array{T, N}; su
     
     # If not 1D, reshape the samples
     if ndims(tso) > 1
-        sum_precompute = increase_dim(sum_precompute, size(tso))
+        increase_dim!(sum_precompute, size(tso))
     end
     return sum_precompute
 end
@@ -260,6 +261,33 @@ function increase_dim(sum_precompute::DefaultOrderedDict, size_)
     end
     return sum_precompute2
 end
+
+function increase_dim!(sum_precompute::DefaultOrderedDict, size_)
+    for (obj, v) in copy(sum_precompute)
+        if obj isa Tuple # If it is a tuple, it means that it stores the difference between the original S and the flipped S'
+            diff = obj
+            diff_res = []
+            for (i, s) in diff
+                push!(diff_res, (increase_dim(i, size_), s))
+            end
+            diff_res = Tuple(diff_res)
+            sum_precompute[diff_res] += v
+            delete!(sum_precompute, obj)
+        
+        elseif obj isa AbstractArray # If it is not a tuple, it means that it should stores S'
+            sample__ = obj
+            sample_high = reshape(sample__, size_)
+            @assert size(sample_high) != size(sample) "The size of the sample should be different from the original size"
+            sum_precompute[sample_high] += v
+            delete!(sum_precompute, sample__)
+        
+        else
+            error("sum_precompute should be composed of Tuples or AbstractArrays")
+        end
+    end
+    return sum_precompute
+end
+
 
 function reduce_dim!(O::ITensors.Scaled, size::Tuple)
     a = ITensors.argument(O)
