@@ -51,3 +51,4 @@ end
 include("eigen_solver.jl")
 include("reduce_solver.jl")
 include("eigen_solver_autocut.jl")
+include("LinearSolveWrapper.jl")
