@@ -67,7 +67,7 @@ end
 
 function dense_S(G::SparseGeometricTensor)
     GT = centered(G)
-    return (GT' * GT) ./ length(G)
+    return (GT' * GT) ./ nr_parameters(G)
 end
 
 mutable struct NaturalGradient{T <: Number}
@@ -216,19 +216,16 @@ end
 function tdvp_error(GT::SparseGeometricTensor, Es::EnergySummary, grad_half::Vector, θdot::Vector)
     var_E = var(Es)
 
-    Eks_eff = -(centered(GT) * θdot) 
-
-    Eks = centered(Es)
-    #relative_error = std(Eks_eff .- Eks) / (std(Eks) + 1e-10)
-
-    var_eff_1 = -Eks_eff' * Eks_eff / length(Es)
-    # var_eff_1 = -var(Eks_eff)
-
-    var_eff_1 = -var(Eks_eff)
-    var_eff_2 = θdot' * grad_half - grad_half' * θdot
+    Eks_eff = -(centered(GT) * θdot)
+    Eks_eff = centered(Es) 
+    var_eff_1 = -Eks_eff' * Eks_eff / (length(Es) - 1)
+    
+    f = length(Es) / (length(Es) - 1)
+    var_eff_2 = θdot' * grad_half * f
+    
     var_eff = var_eff_1 + real(var_eff_2)
 
-    return 1 + var_eff/var_E
+    return 1 + var_eff/var_E/2
 end
 
 function tdvp_relative_error(sr::NaturalGradient)
