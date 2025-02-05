@@ -277,7 +277,7 @@ function increase_dim!(sum_precompute::DefaultOrderedDict, size_)
         elseif obj isa AbstractArray # If it is not a tuple, it means that it should stores S'
             sample__ = obj
             sample_high = reshape(sample__, size_)
-            @assert size(sample_high) != size(sample) "The size of the sample should be different from the original size"
+            @assert size(sample_high) != size(sample__) "The size of the sample should be different from the original size"
             sum_precompute[sample_high] += v
             delete!(sum_precompute, sample__)
         
