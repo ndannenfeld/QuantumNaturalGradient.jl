@@ -1,27 +1,27 @@
 abstract type AbstractSolver end
 
-function solve_S(solver::AbstractSolver, GT::SparseGeometricTensor, grad_half::Vector; kwargs...)
-    GTd = dense_S(GT)
-    θdot = -solver(GTd, grad_half; kwargs...)
+function solve_S(solver::AbstractSolver, J::Jacobian, grad_half::Vector; kwargs...)
+    Jd = dense_S(J)
+    θdot = -solver(Jd, grad_half; kwargs...)
     
     return θdot
 end
 
-function solve_T(solver::AbstractSolver, GT::SparseGeometricTensor, Es::EnergySummary; kwargs...)
-    GTd = dense_T(GT)
+function solve_T(solver::AbstractSolver, J::Jacobian, Es::EnergySummary; kwargs...)
+    Jd = dense_T(J)
     Ekms = centered(Es)
 
-    θdot_raw = -solver(GTd, Ekms; kwargs...)
-    θdot = centered(GT)' * θdot_raw
+    θdot_raw = -solver(Jd, Ekms; kwargs...)
+    θdot = centered(J)' * θdot_raw
 
     return θdot
 end
 
 function (solver::AbstractSolver)(ng::NaturalGradient; method=:auto, compute_error=true, kwargs...)
-    if method === :T || (method === :auto && nr_samples(ng.GT) < nr_parameters(ng.GT))
-        ng.θdot = solve_T(solver, ng.GT, ng.Es; kwargs...)
+    if method === :T || (method === :auto && nr_samples(ng.J) < nr_parameters(ng.J))
+        ng.θdot = solve_T(solver, ng.J, ng.Es; kwargs...)
     else
-        ng.θdot = solve_S(solver, ng.GT, get_gradient(ng) ./ 2; kwargs...)
+        ng.θdot = solve_S(solver, ng.J, get_gradient(ng) ./ 2; kwargs...)
     end
     if compute_error
         tdvp_error!(ng)

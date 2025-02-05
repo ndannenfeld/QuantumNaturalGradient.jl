@@ -1,8 +1,8 @@
-struct SparseGeometricTensor{T <: Number}
+struct Jacobian{T <: Number}
     data::AbstractArray{T, 2}
     data_mean::Vector{T}
     importance_weights::Union{Vector{<:Real}, Nothing}
-    function SparseGeometricTensor(m::AbstractMatrix{T}; importance_weights=nothing, mean_=nothing) where T <: Number
+    function Jacobian(m::AbstractMatrix{T}; importance_weights=nothing, mean_=nothing) where T <: Number
         if mean_ === nothing
             data_mean = wmean(m; weights=importance_weights, dims=1)
         else
@@ -10,73 +10,73 @@ struct SparseGeometricTensor{T <: Number}
         end
         
         m = m .- data_mean
-        return SparseGeometricTensor(m, data_mean[1, :]; importance_weights)
+        return Jacobian(m, data_mean[1, :]; importance_weights)
     end
-    function SparseGeometricTensor(m::AbstractMatrix{T}, data_mean::Vector{T}; importance_weights=nothing) where T <: Number
+    function Jacobian(m::AbstractMatrix{T}, data_mean::Vector{T}; importance_weights=nothing) where T <: Number
         if importance_weights !== nothing
             m = m .* sqrt.(importance_weights)
         end
         return new{T}(m, data_mean, importance_weights)
     end
-    function SparseGeometricTensor(m::Vector{Vector{T}}; importance_weights=nothing, mean_=nothing) where T <: Number
+    function Jacobian(m::Vector{Vector{T}}; importance_weights=nothing, mean_=nothing) where T <: Number
         m, data_mean = convert_to_matrix_without_mean(m; weights=importance_weights, mean_)
-        return SparseGeometricTensor(m, data_mean; importance_weights)
+        return Jacobian(m, data_mean; importance_weights)
     end
 end
 
-Base.size(GT::SparseGeometricTensor) = size(GT.data)
-Base.size(GT::SparseGeometricTensor, i) = size(GT.data, i)
-nr_parameters(GT::SparseGeometricTensor) = size(GT.data, 2)
-nr_samples(GT::SparseGeometricTensor) = size(GT.data, 1)
+Base.size(J::Jacobian) = size(J.data)
+Base.size(J::Jacobian, i) = size(J.data, i)
+nr_parameters(J::Jacobian) = size(J.data, 2)
+nr_samples(J::Jacobian) = size(J.data, 1)
 
-Base.length(GT::SparseGeometricTensor) = size(GT.data, 1)
-function get_importance_weights(GT::SparseGeometricTensor)
-    if GT.importance_weights === nothing
-        return ones(nr_samples(GT))
+Base.length(J::Jacobian) = size(J.data, 1)
+function get_importance_weights(J::Jacobian)
+    if J.importance_weights === nothing
+        return ones(nr_samples(J))
     else
-        return GT.importance_weights
+        return J.importance_weights
     end
 end
 
-function centered(GT::SparseGeometricTensor; mode=:importance_sqrt)
-    if GT.importance_weights === nothing
-        return GT.data
+function centered(J::Jacobian; mode=:importance_sqrt)
+    if J.importance_weights === nothing
+        return J.data
     end
     if mode == :importance_sqrt
-        return GT.data
+        return J.data
     elseif mode == :importance
-        return GT.data .* sqrt.(GT.importance_weights)
+        return J.data .* sqrt.(J.importance_weights)
     elseif mode == :no_importance
-        return GT.data ./ sqrt.(GT.importance_weights)
+        return J.data ./ sqrt.(J.importance_weights)
     else
         error("mode should be :importance_sqrt, :importance or :no_importance. $mode was given.")
     end
 end
     
-function uncentered(GT::SparseGeometricTensor)
-    GTd = centered(GT; mode=:no_importance)
-    return GTd .+ reshape(GT.data_mean, 1, :)
+function uncentered(J::Jacobian)
+    Jd = centered(J; mode=:no_importance)
+    return Jd .+ reshape(J.data_mean, 1, :)
 end
 
-Statistics.mean(GT::SparseGeometricTensor) = GT.data_mean
+Statistics.mean(J::Jacobian) = J.data_mean
 
-function dense_T(G::SparseGeometricTensor)
-    GT = centered(G)
-    # GT * GT' is slow, so we use BLAS.gemm! instead
-    C = Matrix{eltype(GT)}(undef, size(GT, 1), size(GT, 1))
-    return BLAS.gemm!('N', 'C', 1., GT, GT, 0., C)
+function dense_T(G::Jacobian)
+    J = centered(G)
+    # J * J' is slow, so we use BLAS.gemm! instead
+    C = Matrix{eltype(J)}(undef, size(J, 1), size(J, 1))
+    return BLAS.gemm!('N', 'C', 1., J, J, 0., C)
 end
 
-function dense_S(G::SparseGeometricTensor)
-    GT = centered(G)
-    # (GT' * GT) ./ nr_parameters(G)
-    C = Matrix{eltype(G)}(undef, size(GT, 2), size(GT, 2))
-    return BLAS.gemm!('T', 'N', 1/nr_samples(G), GT, GT, 0., C)
+function dense_S(G::Jacobian)
+    J = centered(G)
+    # (J' * J) ./ nr_parameters(G)
+    C = Matrix{eltype(G)}(undef, size(J, 2), size(J, 2))
+    return BLAS.gemm!('T', 'N', 1/nr_samples(G), J, J, 0., C)
 end
 
 mutable struct NaturalGradient{T <: Number}
     samples
-    GT::SparseGeometricTensor{T}
+    J::Jacobian{T}
     Es::EnergySummary
     logψσs::Vector{Complex{Float64}}
     grad
@@ -84,12 +84,12 @@ mutable struct NaturalGradient{T <: Number}
     tdvp_error::Union{Real, Nothing}
     importance_weights::Union{Vector{<:Real}, Nothing}
     saved_properties
-    function NaturalGradient(samples, GT::SparseGeometricTensor{T}, Es::EnergySummary,
+    function NaturalGradient(samples, J::Jacobian{T}, Es::EnergySummary,
          logψσs::Vector{Complex{Float64}}, θdot=nothing,
           tdvp_error::Union{Float64, Nothing}=nothing;
           importance_weights=nothing, grad=nothing, saved_properties=nothing) where {T <: Number}
 
-        return new{T}(samples, GT, Es, logψσs, grad, θdot, tdvp_error, importance_weights, saved_properties)
+        return new{T}(samples, J, Es, logψσs, grad, θdot, tdvp_error, importance_weights, saved_properties)
     end
 end
 function convert_to_vector(samples::Matrix{T}) where T <: Integer
@@ -179,9 +179,9 @@ function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
     end
     
     Es = EnergySummary(Eks; importance_weights, mean_=Eks_mean, var_=Eks_var)
-    GT = @timeit timer "copy Oks" SparseGeometricTensor(Oks; importance_weights, mean_=Oks_mean)
+    J = @timeit timer "copy Oks" Jacobian(Oks; importance_weights, mean_=Oks_mean)
 
-    sr = NaturalGradient(samples, GT, Es, logψσs; importance_weights, saved_properties)
+    sr = NaturalGradient(samples, J, Es, logψσs; importance_weights, saved_properties)
 
     if solver !== nothing
         @timeit timer "solver" solver(sr)
@@ -192,14 +192,14 @@ end
 
 function get_gradient(sr::NaturalGradient)
     if sr.grad === nothing
-        sr.grad = centered(sr.GT)' * centered(sr.Es) .* (2/ length(sr.Es))
+        sr.grad = centered(sr.J)' * centered(sr.Es) .* (2/ length(sr.Es))
     end
     return sr.grad
 end
 
 
 function tdvp_error(sr::NaturalGradient)
-    return tdvp_error(sr.GT, sr.Es, get_gradient(sr)./2, sr.θdot)
+    return tdvp_error(sr.J, sr.Es, get_gradient(sr)./2, sr.θdot)
 end
 
 function tdvp_error!(sr::NaturalGradient)
@@ -209,7 +209,7 @@ end
 
 
 function tdvp_error(sr::NaturalGradient, SR_control::NaturalGradient)
-    return tdvp_error(SR_control.GT, SR_control.Es, get_gradient(SR_control)./2, sr.θdot)
+    return tdvp_error(SR_control.J, SR_control.Es, get_gradient(SR_control)./2, sr.θdot)
 end
 
 function tdvp_error!(sr::NaturalGradient, SR_control::NaturalGradient)
@@ -217,10 +217,10 @@ function tdvp_error!(sr::NaturalGradient, SR_control::NaturalGradient)
     return sr.tdvp_error
 end
 
-function tdvp_error(GT::SparseGeometricTensor, Es::EnergySummary, grad_half::Vector, θdot::Vector)
+function tdvp_error(J::Jacobian, Es::EnergySummary, grad_half::Vector, θdot::Vector)
     var_E = var(Es)
 
-    Eks_eff = -(centered(GT) * θdot)
+    Eks_eff = -(centered(J) * θdot)
     Eks_eff = centered(Es) 
     var_eff_1 = -Eks_eff' * Eks_eff / (length(Es) - 1)
 
@@ -233,15 +233,15 @@ function tdvp_error(GT::SparseGeometricTensor, Es::EnergySummary, grad_half::Vec
 end
 
 function tdvp_relative_error(sr::NaturalGradient)
-    return tdvp_relative_error(sr.GT, sr.Es, sr.θdot)
+    return tdvp_relative_error(sr.J, sr.Es, sr.θdot)
 end
 
 function tdvp_relative_error(sr::NaturalGradient, sr_control::NaturalGradient)
-    return tdvp_relative_error(sr_control.GT, sr_control.Es, sr.θdot)
+    return tdvp_relative_error(sr_control.J, sr_control.Es, sr.θdot)
 end
 
-function tdvp_relative_error(GT::SparseGeometricTensor, Es::EnergySummary, θdot::Vector)
-    Eks_eff = -(centered(GT) * θdot)
+function tdvp_relative_error(J::Jacobian, Es::EnergySummary, θdot::Vector)
+    Eks_eff = -(centered(J) * θdot)
     Eks = centered(Es)
     relative_error = std(Eks_eff .- Eks) / (std(Eks) + 1e-10)
     return relative_error

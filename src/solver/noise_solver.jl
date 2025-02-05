@@ -8,12 +8,12 @@ function (solver::NoiseSolver)(sr::NaturalGradient; method=:auto, kwargs...)
     Es_noisy = sr.Es.data + randn(length(sr.Es)) * solver.σ
     Es_noisy = EnergySummary(Es_noisy)
 
-    if method === :T || (method === :auto && nr_samples(GT) < nr_parameters(GT))
-        sr.θdot = solve_T(solver, sr.GT, Es_noisy; kwargs...)
+    if method === :T || (method === :auto && nr_samples(J) < nr_parameters(J))
+        sr.θdot = solve_T(solver, sr.J, Es_noisy; kwargs...)
     else
         Ekms = centered(Es_noisy)
-        grad_half = centered(GT)' * Ekms ./ length(Es)
-        sr.θdot = solve_S(solver, sr.GT, grad_half; kwargs...)
+        grad_half = centered(J)' * Ekms ./ length(Es)
+        sr.θdot = solve_S(solver, sr.J, grad_half; kwargs...)
     end
     
     tdvp_error!(sr)

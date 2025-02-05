@@ -30,7 +30,7 @@ function (integrator::Heun)(θ::AbstractVector, Oks_and_Eks_; kwargs...)
     @assert ! integrator.adaptive "Adaptive Heun not implemented yet"
     
     
-    #Δθ_n = norm(centered(sr1.GT) * Δθ) / sqrt(length(sr1))
+    #Δθ_n = norm(centered(sr1.J) * Δθ) / sqrt(length(sr1))
     #tdvp_error_ = (QuantumNaturalGradient.tdvp_relative_error(sr1) + QuantumNaturalGradient.tdvp_relative_error(sr2)) ./2
     #tdvp_error = (QuantumNaturalGradient.tdvp_relative_error(sr1, sr2) + QuantumNaturalGradient.tdvp_relative_error(sr2, sr1)) ./ 2
     

@@ -9,25 +9,25 @@ mutable struct EigenSolverAutocut <: AbstractSolver
 end
 
 function (solver::EigenSolverAutocut)(sr::NaturalGradient; method=:auto, kwargs...)
-    if method === :T || (method === :auto && nr_samples(GT) < nr_parameters(GT))
-        sr.θdot = solve_T(solver, sr.GT, sr.Es; kwargs...)
+    if method === :T || (method === :auto && nr_samples(J) < nr_parameters(J))
+        sr.θdot = solve_T(solver, sr.J, sr.Es; kwargs...)
     else
-        sr.θdot = solve_S(solver, sr.GT, get_gradient(sr) ./ 2; kwargs...)
+        sr.θdot = solve_S(solver, sr.J, get_gradient(sr) ./ 2; kwargs...)
     end
     
     tdvp_error!(sr)
     return sr
 end
 
-function solve_S(solver::EigenSolverAutocut, GT::SparseGeometricTensor, grad_half::Vector; kwargs...)
+function solve_S(solver::EigenSolverAutocut, J::Jacobian, grad_half::Vector; kwargs...)
     error("Not implemented")
 end
 
-function solve_T(solver::EigenSolverAutocut, GT::SparseGeometricTensor, Es::EnergySummary; kwargs...)
+function solve_T(solver::EigenSolverAutocut, J::Jacobian, Es::EnergySummary; kwargs...)
     Ekms = centered(Es)
 
-    θdot_raw = -solver(centered(GT), Ekms; kwargs...)
-    θdot = centered(GT)' * θdot_raw
+    θdot_raw = -solver(centered(J), Ekms; kwargs...)
+    θdot = centered(J)' * θdot_raw
 
     return θdot
 end

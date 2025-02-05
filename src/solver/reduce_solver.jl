@@ -17,14 +17,14 @@ function (solver::ReduceSolver)(sr::NaturalGradient; kwargs...)
         if solver.reduction_method === :unitary
             U = NDTensors.random_unitary(Float64, new_sample_nr, sample_nr)
         else
-            U = RandomizedLinAlg.rrange(centered(sr.GT), new_sample_nr)'
+            U = RandomizedLinAlg.rrange(centered(sr.J), new_sample_nr)'
         end
         
-        GT = U * centered(sr.GT)
-        GTd = GT * GT'
+        J = U * centered(sr.J)
+        Jd = J * J'
         
-        θdot_raw = -solver(GTd, U * Ekms; kwargs...)
-        sr.θdot = GT' * θdot_raw
+        θdot_raw = -solver(Jd, U * Ekms; kwargs...)
+        sr.θdot = J' * θdot_raw
 
     elseif solver.reduction_method === :sum
 
@@ -34,17 +34,17 @@ function (solver::ReduceSolver)(sr::NaturalGradient; kwargs...)
         sample_nr_eff = sample_nr ÷ reduction_factor * reduction_factor
         new_sample_nr = sample_nr_eff ÷ reduction_factor
         
-        GT = centered(sr.GT)[1:sample_nr_eff, :]
+        J = centered(sr.J)[1:sample_nr_eff, :]
 
-        GT = reshape(GT[1:sample_nr_eff, :], new_sample_nr, reduction_factor, size(GT, 2))
-        GT = mean(GT, dims=2)[:, 1, :]
-        GTd = GT * GT'
+        J = reshape(J[1:sample_nr_eff, :], new_sample_nr, reduction_factor, size(J, 2))
+        J = mean(J, dims=2)[:, 1, :]
+        Jd = J * J'
 
         Ekms = reshape(Ekms[1:sample_nr_eff], new_sample_nr, reduction_factor)
         Ekms = mean(Ekms, dims=2)[:, 1]
         
-        θdot_raw = -solver(GTd, Ekms; kwargs...)
-        sr.θdot = GT' * θdot_raw
+        θdot_raw = -solver(Jd, Ekms; kwargs...)
+        sr.θdot = J' * θdot_raw
     else
         error("Unknown reduction method: $(solver.reduction_method) (should be :unitary_rrange, :unitary or :sum)")
     end

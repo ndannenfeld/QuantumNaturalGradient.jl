@@ -10,14 +10,14 @@ mutable struct SlowKrylovSolver <: AbstractSolver
 end
 
 function (solver::SlowKrylovSolver)(ng::NaturalGradient; method=:auto, kwargs...)
-    GT = centered(ng.GT)
-    ns = nr_samples(ng.GT)
+    J = centered(ng.J)
+    ns = nr_samples(ng.J)
     
     function S_times_v(v)
-        v1 = GT * v
+        v1 = J * v
         v = zeros(eltype(v), length(v))
-        BLAS.gemv!('C', 1.0/ns, GT, v1, 0.0, v)
-        # Instead of GT' * (GT * v) is much faster
+        BLAS.gemv!('C', 1.0/ns, J, v1, 0.0, v)
+        # Instead of J' * (J * v) is much faster
         return v
     end
     grad_half = get_gradient(ng) ./ 2

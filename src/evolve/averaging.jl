@@ -18,13 +18,13 @@ function (integrator::AbstractIntegratorAveraging)(θ::AbstractVector, Oks_and_E
 
     Eks_solve, Oks_solve = get_effective_Oks_and_Eks!(integrator, sr, θ, memory_size, solver_size)
 
-    GTd = Oks_solve * Oks_solve'
+    Jd = Oks_solve * Oks_solve'
 
     local θdot_raw
     if :timer in keys(kwargs)
-        θdot_raw = @timeit kwargs[:timer] "solver" -solver(GTd, Eks_solve)
+        θdot_raw = @timeit kwargs[:timer] "solver" -solver(Jd, Eks_solve)
     else
-        θdot_raw = -solver(GTd, Eks_solve)
+        θdot_raw = -solver(Jd, Eks_solve)
     end
     
     sr.θdot = Oks_solve' * θdot_raw
@@ -56,7 +56,7 @@ end
 
 function get_effective_Oks_and_Eks!(integrator::EulerAveraging, sr, θ, memory_size, solver_size)
     
-    Oks = centered(sr.GT) ./ sqrt(length(sr))
+    Oks = centered(sr.J) ./ sqrt(length(sr))
     Eks = centered(sr.Es) ./ sqrt(length(sr))
 
     beta_sqrt = sqrt(integrator.beta)
@@ -80,7 +80,7 @@ function get_effective_Oks_and_Eks!(integrator::EulerAveraging, sr, θ, memory_s
             @info "Outlier detected, resampling, saving as $name"
             save(name , "sr", sr)
             sr = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
-            Oks = centered(sr.GT) ./ sqrt(length(sr))
+            Oks = centered(sr.J) ./ sqrt(length(sr))
             Eks = centered(sr.Es) ./ sqrt(length(sr))
         end
 
@@ -132,11 +132,11 @@ end
 end
 
 function get_effective_Oks_and_Eks!(integrator::EulerWindowing, sr, θ, memory_size, solver_size)
-    Oks = uncentered(sr.GT)
+    Oks = uncentered(sr.J)
     Eks = uncentered(sr.Es)
 
     #mean_Ek = mean(sr.Es)
-    #mean_Ok = mean(sr.GT)
+    #mean_Ok = mean(sr.J)
 
     βp, = get!(integrator.state, θ) do
         (Float64[1.],)
@@ -151,7 +151,7 @@ function get_effective_Oks_and_Eks!(integrator::EulerWindowing, sr, θ, memory_s
         integrator.Eks = Eks
         integrator.Oks = Oks
 
-        integrator.weights = get_importance_weights(sr.GT) .* (1-integrator.beta)
+        integrator.weights = get_importance_weights(sr.J) .* (1-integrator.beta)
         memory_size = min(memory_size, length(sr))
     else
         if integrator.outlier_threshold < norm(Eks) / norm(integrator.Eks)
@@ -160,7 +160,7 @@ function get_effective_Oks_and_Eks!(integrator::EulerWindowing, sr, θ, memory_s
             @info "Outlier detected, resampling, saving as $name"
             save(name , "sr", sr)
             sr = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
-            Oks = uncentered(sr.GT) ./ sqrt(length(sr))
+            Oks = uncentered(sr.J) ./ sqrt(length(sr))
             Eks = uncentered(sr.Es) ./ sqrt(length(sr))
         end
         f = length(Eks) / length(integrator.Eks) 
@@ -168,7 +168,7 @@ function get_effective_Oks_and_Eks!(integrator::EulerWindowing, sr, θ, memory_s
         integrator.Eks = vcat(integrator.Eks, Eks)
         integrator.Oks =  cat(integrator.Oks, Oks, dims=1)
 
-        weights = get_importance_weights(sr.GT)
+        weights = get_importance_weights(sr.J)
         integrator.weights = vcat(integrator.beta .* integrator.weights, (1-integrator.beta) .* weights)
 
         memory_size = min(memory_size, length(sr) + length(integrator.Eks))
@@ -186,7 +186,7 @@ function get_effective_Oks_and_Eks!(integrator::EulerWindowing, sr, θ, memory_s
     sr_solve = NaturalGradient(integrator.Oks, integrator.Eks, zeros(ComplexF64, length(integrator.Eks)), zeros(Int, length(integrator.Eks), 1); importance_weights=weights)
     
     Eks_solve = centered(sr_solve.Es)
-    Oks_solve = centered(sr_solve.GT)
+    Oks_solve = centered(sr_solve.J)
     if solver_size != memory_size
         Us = RandomizedLinAlg.rrange(Oks_solve, solver_size)'
         Eks_solve = Us * Eks_solve
@@ -212,11 +212,11 @@ end
 end
 
 function get_effective_Oks_and_Eks!(integrator::EulerNormAveraging, sr, θ, memory_size, solver_size)
-    Oks = uncentered(sr.GT)
+    Oks = uncentered(sr.J)
     Eks = uncentered(sr.Es)
 
     mean_Ek = mean(sr.Es)
-    mean_Ok = mean(sr.GT)
+    mean_Ok = mean(sr.J)
     
     N, mean_Ek_h, mean_Ok_h = get!(integrator.state, θ) do
         (Float64[0.], 
@@ -235,8 +235,8 @@ function get_effective_Oks_and_Eks!(integrator::EulerNormAveraging, sr, θ, memo
     solver_size = min(solver_size, length(sr))
 
     if sr.importance_weights !== nothing
-        Oksc = Oksc .* sqrt.(reshape(sr.GT.importance_weights, :, 1))
-        Eksc = Eksc .* sqrt.(sr.GT.importance_weights)
+        Oksc = Oksc .* sqrt.(reshape(sr.J.importance_weights, :, 1))
+        Eksc = Eksc .* sqrt.(sr.J.importance_weights)
     end
 
     if solver_size < length(sr)
