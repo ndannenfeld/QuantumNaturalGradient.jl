@@ -11,7 +11,8 @@ end
 
 function (solver::SlowKrylovSolver)(ng::NaturalGradient; method=:auto, kwargs...)
     GT = centered(ng.GT)
-    np = nr_parameters(ng.GT)
+    ns = nr_samples(ng.GT)
+    
     function S_times_v(v)
         v1 = GT * v
         v = zeros(eltype(v), length(v))
