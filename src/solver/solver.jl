@@ -17,14 +17,15 @@ function solve_T(solver::AbstractSolver, GT::SparseGeometricTensor, Es::EnergySu
     return θdot
 end
 
-function (solver::AbstractSolver)(ng::NaturalGradient; method=:auto, kwargs...)
-    if method === :T || (method === :auto && nr_parameters(ng.GT) < nr_samples(ng.GT))
+function (solver::AbstractSolver)(ng::NaturalGradient; method=:auto, compute_error=true, kwargs...)
+    if method === :T || (method === :auto && nr_samples(ng.GT) < nr_parameters(ng.GT))
         ng.θdot = solve_T(solver, ng.GT, ng.Es; kwargs...)
     else
         ng.θdot = solve_S(solver, ng.GT, get_gradient(ng) ./ 2; kwargs...)
     end
-    
-    tdvp_error!(ng)
+    if compute_error
+        tdvp_error!(ng)
+    end
     return ng
 end
 

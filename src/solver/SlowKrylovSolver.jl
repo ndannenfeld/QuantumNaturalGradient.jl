@@ -11,12 +11,13 @@ end
 
 function (solver::SlowKrylovSolver)(ng::NaturalGradient; method=:auto, kwargs...)
     GT = centered(ng.GT)
-    GTa = GT'
     np = nr_parameters(ng.GT)
     function S_times_v(v)
-        p =  GTa * (GT * v)
-        p ./= np
-        return p
+        v1 = GT * v
+        v = zeros(eltype(v), length(v))
+        BLAS.gemv!('C', 1.0/ns, GT, v1, 0.0, v)
+        # Instead of GT' * (GT * v) is much faster
+        return v
     end
     grad_half = get_gradient(ng) ./ 2
     

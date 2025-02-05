@@ -26,8 +26,8 @@ end
 
 Base.size(GT::SparseGeometricTensor) = size(GT.data)
 Base.size(GT::SparseGeometricTensor, i) = size(GT.data, i)
-nr_parameters(GT::SparseGeometricTensor) = size(GT.data, 1)
-nr_samples(GT::SparseGeometricTensor) = size(GT.data, 2)
+nr_parameters(GT::SparseGeometricTensor) = size(GT.data, 2)
+nr_samples(GT::SparseGeometricTensor) = size(GT.data, 1)
 
 Base.length(GT::SparseGeometricTensor) = size(GT.data, 1)
 function get_importance_weights(GT::SparseGeometricTensor)
@@ -62,12 +62,16 @@ Statistics.mean(GT::SparseGeometricTensor) = GT.data_mean
 
 function dense_T(G::SparseGeometricTensor)
     GT = centered(G)
-    return GT * GT'
+    # GT * GT' is slow, so we use BLAS.gemm! instead
+    C = Matrix{eltype(GT)}(undef, size(GT, 1), size(GT, 1))
+    return BLAS.gemm!('N', 'C', 1., GT, GT, 0., C)
 end
 
 function dense_S(G::SparseGeometricTensor)
     GT = centered(G)
-    return (GT' * GT) ./ nr_parameters(G)
+    # (GT' * GT) ./ nr_parameters(G)
+    C = Matrix{eltype(G)}(undef, size(GT, 2), size(GT, 2))
+    return BLAS.gemm!('T', 'N', 1/nr_samples(G), GT, GT, 0., C)
 end
 
 mutable struct NaturalGradient{T <: Number}
@@ -219,7 +223,7 @@ function tdvp_error(GT::SparseGeometricTensor, Es::EnergySummary, grad_half::Vec
     Eks_eff = -(centered(GT) * θdot)
     Eks_eff = centered(Es) 
     var_eff_1 = -Eks_eff' * Eks_eff / (length(Es) - 1)
-    
+
     f = length(Es) / (length(Es) - 1)
     var_eff_2 = θdot' * grad_half * f
     
