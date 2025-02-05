@@ -238,6 +238,12 @@ function increase_dim(ts::Tuple, size::Tuple)
     end
 end
 
+function increase_dim(sample_::AbstractArray, size_)
+    sample_high = reshape(sample_, size_)
+    @assert size(sample_high) != size(sample_) "The size of the sample should be different from the original size"
+    return sample_high
+end
+
 
 function increase_dim(sum_precompute::DefaultOrderedDict, size_)
     sum_precompute2 = DefaultOrderedDict(()->0)
@@ -266,13 +272,15 @@ function increase_dim!(sum_precompute::DefaultOrderedDict, size_)
     for (obj, v) in copy(sum_precompute)
         if obj isa Tuple # If it is a tuple, it means that it stores the difference between the original S and the flipped S'
             diff = obj
-            diff_res = []
+            diff_high = []
             for (i, s) in diff
-                push!(diff_res, (increase_dim(i, size_), s))
+                push!(diff_high, (increase_dim(i, size_), s))
             end
-            diff_res = Tuple(diff_res)
-            sum_precompute[diff_res] += v
-            delete!(sum_precompute, obj)
+            diff_high = Tuple(diff_high)
+            if diff_high != diff
+                sum_precompute[diff_high] += v
+                delete!(sum_precompute, obj)
+            end
         
         elseif obj isa AbstractArray # If it is not a tuple, it means that it should stores S'
             sample__ = obj
