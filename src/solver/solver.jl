@@ -31,13 +31,13 @@ end
 
 function (solver::AbstractSolver)(M::AbstractMatrix, v::AbstractArray, double::Bool; method=:auto, kwargs...)
     if double
-        return solver(M, v)
+        return solver(M, v; kwargs...)
     end
     
     if method === :T || (method === :auto && size(M, 1) < size(M, 2))
-        return M' * solver(M * M', v)
+        return M' * solver(M * M', v; kwargs...)
     else
-        return solver(M' * M, M' * v)
+        return solver(M' * M, M' * v; kwargs...)
     end
 end
 
@@ -52,3 +52,4 @@ include("eigen_solver.jl")
 include("reduce_solver.jl")
 include("eigen_solver_autocut.jl")
 include("LinearSolveWrapper.jl")
+include("SlowKrylovSolver.jl")
