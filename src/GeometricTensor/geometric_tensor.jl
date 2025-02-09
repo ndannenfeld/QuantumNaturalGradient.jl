@@ -70,7 +70,7 @@ end
 function dense_S(G::Jacobian)
     J = centered(G)
     # (J' * J) ./ nr_parameters(G)
-    C = Matrix{eltype(G)}(undef, size(J, 2), size(J, 2))
+    C = Matrix{eltype(J)}(undef, size(J, 2), size(J, 2))
     return BLAS.gemm!('T', 'N', 1/nr_samples(G), J, J, 0., C)
 end
 
