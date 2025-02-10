@@ -62,7 +62,7 @@ mutable struct OptimizationState
     verbosity::Int
 end
 
-#get_misc(state::OptimizationState) = Dict("energy" => state.energy, "niter" => state.niter, "history" => state.history, "rng" => get_rng())
+get_misc(state::OptimizationState) = Dict("energy" => state.energy, "niter" => state.niter, "history" => state.history, "rng" => get_rng())
 
 function get_rng()
     t = current_task()
@@ -92,7 +92,7 @@ function OptimizationState(Oks_and_Eks, θ::T, integrator;
     
     if misc_restart !== nothing
         set_misc(state, misc_restart)
-        #state.niter += 1
+        state.niter += 1
     end
 
     return state
@@ -210,7 +210,7 @@ function step!(o::OptimizationState, dynamic_kwargs)
     # Saving the energy and other variables
     Observers.update!(o.history; natural_gradient, θ=o.θ, niter=o.niter, energy=o.energy, var_energy, norm_natgrad, norm_θ, natural_gradient.saved_properties...)
 
-    stop = o.callback(; energy_value=o.energy, model=o.θ, misc=o.history, niter=o.niter)
+    stop = o.callback(; energy_value=o.energy, model=o.θ, misc=get_misc(o), niter=o.niter)
 
     if o.verbosity >= 2
         @info "iter $(o.niter): $(natural_gradient.Es), ‖θdot‖ = $(norm_natgrad), ‖θ‖ = $(norm_θ), tdvp_error = $(natural_gradient.tdvp_error)"
