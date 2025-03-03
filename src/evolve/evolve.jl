@@ -83,8 +83,8 @@ function OptimizationState(Oks_and_Eks, θ::T, integrator;
     norm_natgrad(; norm_natgrad) = norm_natgrad
     norm_θ(; norm_θ) = norm_θ
     niter(; niter) = niter
-
-    history = Observer(niter, energy, var_energy, norm_natgrad, norm_θ, logger_funcs...)
+    logger_funcs = [niter, energy, var_energy, norm_natgrad, norm_θ, logger_funcs...]
+    history = Observer(logger_funcs...)
     state = OptimizationState(
         Oks_and_Eks, callback, transform!, θ, integrator, solver,
         1e10, 1, history, timer, discard_outliers, sample_nr, maxiter, gradtol, verbosity
@@ -92,13 +92,34 @@ function OptimizationState(Oks_and_Eks, θ::T, integrator;
     
     if misc_restart !== nothing
         set_misc(state, misc_restart)
+        fixbrokenObserver!(state.history, logger_funcs)
         state.niter += 1
     end
 
     return state
 end
 
+function fixbrokenObserver!(history, logger_funcs)
+    for f in logger_funcs
+        if !(Observers.get_function(history, string(f)) isa Function)
+            Observers.set_function!(history, f)
+        end
+    end
+    return history
+end
+
 function set_misc(state::OptimizationState, misc)
+
+    if misc isa DataFrame # This is for backward compatibility
+        @warn "The misc dictionary is a DataFrame. This is deprecated. Please use a dictionary instead."
+        state.history = misc
+        enes = state.history[!, "energy"]
+        state.niter = length(enes)
+        state.energy = enes[end]
+        println("Restarting from niter = $(state.niter)")
+        return nothing
+    end
+
     if haskey(misc, "history")
         @assert state.history isa DataFrame "The history is not a DataFrame."
         state.history = misc["history"]
@@ -108,6 +129,7 @@ function set_misc(state::OptimizationState, misc)
     
     if haskey(misc, "niter")
         state.niter = misc["niter"]
+        println("Restarting from niter = $(state.niter)")
     else
         error("The misc dictionary does not have a niter key")
     end
