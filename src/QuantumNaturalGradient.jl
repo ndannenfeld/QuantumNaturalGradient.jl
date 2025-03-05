@@ -6,6 +6,7 @@ using ParallelDataTransfer
 
 using DataStructures
 using Statistics
+using StatsBase
 using LinearAlgebra
 using RandomizedLinAlg
 using Random
