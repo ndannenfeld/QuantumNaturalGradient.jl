@@ -23,7 +23,7 @@ using PastaQ: productstate
 
 
 include("distributed_extension.jl")
-include("GeometricTensor/GeometricTensor.jl")
+include("NaturalGradient/NaturalGradient.jl")
 include("MPS/MPS.jl")
 include("GenericEksAndOks/GenericEksAndOks.jl")
 include("misc/misc.jl")
