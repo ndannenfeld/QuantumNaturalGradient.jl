@@ -207,7 +207,7 @@ function evolve!(state::OptimizationState)
     end
 
     # Collect the results
-    return state.energy, state.θ, state.history
+    return state.energy, state.θ, get_misc(state)
 end
 
 function step!(o::OptimizationState, dynamic_kwargs)
