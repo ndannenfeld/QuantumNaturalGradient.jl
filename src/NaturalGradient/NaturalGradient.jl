@@ -24,18 +24,18 @@ function convert_to_vector(samples::Matrix{T}) where T <: Integer
     return [Vector{T}(samples[i, :]) for i in 1:size(samples, 1)]
 end
 
-Base.length(sr::NaturalGradient) = length(sr.Es)
-Base.show(io::IO, sr::NaturalGradient) = print(io, "NaturalGradient($(sr.Es), tdvp_error=$(sr.tdvp_error))")
+Base.length(ng::NaturalGradient) = length(ng.Es)
+Base.show(io::IO, ng::NaturalGradient) = print(io, "NaturalGradient($(ng.Es), tdvp_error=$(ng.tdvp_error))")
 
 
-function get_θdot(sr::NaturalGradient; θtype=ComplexF64)
-    if eltype(sr.θdot) <: Real
-        return real(θtype).(sr.θdot)
+function get_θdot(ng::NaturalGradient; θtype=ComplexF64)
+    if eltype(ng.θdot) <: Real
+        return real(θtype).(ng.θdot)
     else
         if θtype <: Real
-            return θtype.(real.(sr.θdot))
+            return θtype.(real.(ng.θdot))
         else
-            return sr.θdot
+            return ng.θdot
         end
     end
 end
@@ -73,14 +73,6 @@ function NaturalGradient(θ::Vector, Oks_and_Eks; sample_nr=100, timer=TimerOutp
     end
     kwargs[:saved_properties] = saved_properties
 
-    #if length(out) == 4
-    #    Oks, Eks, logψσs, samples = out
-    #elseif length(out) == 5
-    #    Oks, Eks, logψσs, samples, kwargs[:importance_weights] = out
-    #else 
-    #    error("Oks_and_Eks should return 4 or 5 values. If 4 are returned, importance_weights is assumed to be  equal to 1.")
-    #end
-
     if Oks isa Tuple
         @assert length(Oks) == 2 "Oks should be a Tuple with 2 elements, Oks and Oks_mean"
         Oks, kwargs[:Oks_mean] = Oks
@@ -107,42 +99,42 @@ function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
     end
     
     Es = EnergySummary(Eks; importance_weights, mean_=Eks_mean, var_=Eks_var)
-    J = @timeit timer "copy Oks" Jacobian(Oks; importance_weights, mean_=Oks_mean)
+    J = @timeit timer "jacobi_mean" Jacobian(Oks; importance_weights, mean_=Oks_mean)
 
-    sr = NaturalGradient(samples, J, Es, logψσs; importance_weights, saved_properties)
+    ng = NaturalGradient(samples, J, Es, logψσs; importance_weights, saved_properties)
 
     if solver !== nothing
-        @timeit timer "solver" solver(sr)
+        @timeit timer "solver" solver(ng)
     end
 
-    return sr
+    return ng
 end
 
-function get_gradient(sr::NaturalGradient)
-    if sr.grad === nothing
-        sr.grad = centered(sr.J)' * centered(sr.Es) .* (2/ length(sr.Es))
+function get_gradient(ng::NaturalGradient)
+    if ng.grad === nothing
+        ng.grad = centered(ng.J)' * centered(ng.Es) .* (2/ length(ng.Es))
     end
-    return sr.grad
+    return ng.grad
 end
 
 
-function tdvp_error(sr::NaturalGradient)
-    return tdvp_error(sr.J, sr.Es, get_gradient(sr)./2, sr.θdot)
+function tdvp_error(ng::NaturalGradient)
+    return tdvp_error(ng.J, ng.Es, get_gradient(ng)./2, ng.θdot)
 end
 
-function tdvp_error!(sr::NaturalGradient)
-    sr.tdvp_error = tdvp_error(sr)
-    return sr.tdvp_error
+function tdvp_error!(ng::NaturalGradient)
+    ng.tdvp_error = tdvp_error(ng)
+    return ng.tdvp_error
 end
 
 
-function tdvp_error(sr::NaturalGradient, SR_control::NaturalGradient)
-    return tdvp_error(SR_control.J, SR_control.Es, get_gradient(SR_control)./2, sr.θdot)
+function tdvp_error(ng::NaturalGradient, ng_control::NaturalGradient)
+    return tdvp_error(ng_control.J, ng_control.Es, get_gradient(ng_control)./2, ng.θdot)
 end
 
-function tdvp_error!(sr::NaturalGradient, SR_control::NaturalGradient)
-    sr.tdvp_error = tdvp_error(sr, SR_control)
-    return sr.tdvp_error
+function tdvp_error!(ng::NaturalGradient, ng_control::NaturalGradient)
+    ng.tdvp_error = tdvp_error(ng, ng_control)
+    return ng.tdvp_error
 end
 
 function tdvp_error(J::Jacobian, Es::EnergySummary, grad_half::Vector, θdot::Vector)
@@ -160,12 +152,12 @@ function tdvp_error(J::Jacobian, Es::EnergySummary, grad_half::Vector, θdot::Ve
     return 1 + var_eff/var_E/2
 end
 
-function tdvp_relative_error(sr::NaturalGradient)
-    return tdvp_relative_error(sr.J, sr.Es, sr.θdot)
+function tdvp_relative_error(ng::NaturalGradient)
+    return tdvp_relative_error(ng.J, ng.Es, ng.θdot)
 end
 
-function tdvp_relative_error(sr::NaturalGradient, sr_control::NaturalGradient)
-    return tdvp_relative_error(sr_control.J, sr_control.Es, sr.θdot)
+function tdvp_relative_error(ng::NaturalGradient, sr_control::NaturalGradient)
+    return tdvp_relative_error(sr_control.J, sr_control.Es, ng.θdot)
 end
 
 function tdvp_relative_error(J::Jacobian, Es::EnergySummary, θdot::Vector)
