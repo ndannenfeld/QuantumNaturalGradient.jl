@@ -9,7 +9,10 @@ struct Jacobian{T <: Number}
             data_mean = reshape(mean_, 1, :)
         end
         if inplace
-            m .-= data_mean
+            #m .-= data_mean
+            Threads.@threads for i in 1:size(m, 1)
+                @views m[i, :] .-= data_mean
+            end
         else
             m = m .- data_mean
         end
@@ -25,7 +28,9 @@ struct Jacobian{T <: Number}
         end
         
         if inplace
-            mt.-= data_mean
+            Threads.@threads for i in 1:size(mt, 2)
+                @views mt[:, i] .-= data_mean
+            end
         else
             mt = mt .- data_mean
         end
@@ -36,7 +41,9 @@ struct Jacobian{T <: Number}
     function Jacobian(m::AbstractMatrix{T}, data_mean::Vector{T}; importance_weights=nothing, inplace=true) where T <: Number
         if importance_weights !== nothing
             if inplace
-                m .*= sqrt.(importance_weights)
+                Threads.@threads for j in 1:size(mt, 1)
+                    @views mt[j, :] .*= sqrt(importance_weights[j])
+                end
             else
                 m = m .* sqrt.(importance_weights)
             end
@@ -49,9 +56,11 @@ struct Jacobian{T <: Number}
             w = reshape(importance_weights, 1, :)
             mt = transpose(m)
             if inplace
-                mt .*= sqrt.(w)
+                Threads.@threads for j in 1:size(mt, 2)
+                    @views mt[:, j] .*= sqrt(w[j])
+                end
             else
-                mt = mt.* sqrt.(w)
+                mt = mt .* sqrt.(w)
             end
             m = transpose(mt)
         end
