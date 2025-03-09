@@ -8,6 +8,9 @@ end
 Base.size(t::TensorOperatorSum, args...) = size(t.hilbert, args...)
 Base.ndims(t::TensorOperatorSum) = ndims(t.hilbert)
 
+Base.show(io::IO, t::TensorOperatorSum) = print(io, "TensorOperatorSum(nr_tensors=$(length(t.tensors)), hilbert_size=$(size(t)))")
+
+
 """
     TensorOperatorSum(tensors, hilbert, sites)
     Generates a TensorOperatorSum from a hamiltonian and a hilbert space. It precomputes the sites where the operator acts on.
@@ -31,8 +34,13 @@ function TensorOperatorSum(ham::OpSum, hilbert::Array; combine_tensors=true)
     if combine_tensors
         tso = combine_tensors_at_same_site(tso)
     end
+
+    cast_real_if_complex_is_zero!(tso)
     return tso
 end
+
+convert_eltype(::Type{S}, t::ITensor) where S = ITensor(S.(t.tensor))
+TensorOperatorSum(::Type{S}, t::TensorOperatorSum) where S = TensorOperatorSum(convert_eltype.(S, t.tensors), t.hilbert, t.sites)
 
 
 function get_precomp_sOψ_elems_slow!(tensor::ITensor, sites::Vector, sample_, hilbert; sum_precompute=DefaultOrderedDict(()->0), offset=1, get_flip_sites=false)
@@ -323,5 +331,14 @@ function combine_tensors_at_same_site(tso::TensorOperatorSum)
     tensors_sites = collect(d)
     sites = first.(tensors_sites)
     tensors = second.(tensors_sites)
+
     return TensorOperatorSum(tensors, tso.hilbert, sites)
+end
+
+function cast_real_if_complex_is_zero!(tso::TensorOperatorSum)
+    for (i, t) in enumerate(tso.tensors)
+        if eltype(t) <: Complex && norm(imag(t)) < 1e-14
+            tso.tensors[i] = real(t)
+        end
+    end
 end

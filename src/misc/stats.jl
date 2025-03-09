@@ -1,4 +1,5 @@
 function wmean(arr::AbstractArray{<:Number}; weights_=nothing, kwargs...)
+    # TODO: Parallelize this function
     if weights_ !== nothing
         return mean(arr, weights(weights_); kwargs...)
     end

@@ -104,7 +104,7 @@ function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
     ng = NaturalGradient(samples, J, Es, logψσs; importance_weights, saved_properties)
 
     if solver !== nothing
-        @timeit timer "solver" solver(ng)
+        @timeit timer "solver" solver(ng; timer)
     end
 
     return ng

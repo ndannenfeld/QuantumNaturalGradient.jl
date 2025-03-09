@@ -1,17 +1,17 @@
 abstract type AbstractSolver end
 
-function solve_S(solver::AbstractSolver, J::Jacobian, grad_half::Vector; kwargs...)
-    Jd = dense_S(J)
-    θdot = -solver(Jd, grad_half; kwargs...)
+function solve_S(solver::AbstractSolver, J::Jacobian, grad_half::Vector; timer=TimerOutput(), kwargs...)
+    @timeit "dense_S" Jd = dense_S(J)
+    @timeit "solve" θdot = -solver(Jd, grad_half; kwargs...)
     
     return θdot
 end
 
-function solve_T(solver::AbstractSolver, J::Jacobian, Es::EnergySummary; kwargs...)
-    Jd = dense_T(J)
+function solve_T(solver::AbstractSolver, J::Jacobian, Es::EnergySummary; timer=TimerOutput(), kwargs...)
+    @timeit "dense_T" Jd = dense_T(J)
     Ekms = centered(Es)
 
-    θdot_raw = -solver(Jd, Ekms; kwargs...)
+    @timeit "solve" θdot_raw = -solver(Jd, Ekms; kwargs...)
     θdot = centered(J)' * θdot_raw
 
     return θdot
