@@ -82,7 +82,7 @@ function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilber
     
     indices_sample = collect(hi' => s for (hi, s) in zip(hilbert_r, sample_r)) # Selects the indices that act on the tensor from the left O|s>
     
-    tensor_proj = onehot(indices_sample) * tensor # <s'|T
+    tensor_proj = onehot(eltype(tensor), indices_sample) * tensor # <s'|T
     
     # Make sure that the indices have the right permutation
     perm = NDTensors.getperm(ITensors.inds(tensor_proj), hilbert_r)
