@@ -22,7 +22,7 @@ using Zygote
 using ITensors
 using PastaQ: productstate
 
-
+include("parameters.jl")
 include("distributed_extension.jl")
 include("NaturalGradient/NaturalGradient.jl")
 include("MPS/MPS.jl")

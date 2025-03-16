@@ -1,6 +1,6 @@
 abstract type AbstractIntegratorAveraging <: AbstractIntegrator end
 
-function (integrator::AbstractIntegratorAveraging)(θ::AbstractVector, Oks_and_Eks_; solver=nothing, kwargs...)
+function (integrator::AbstractIntegratorAveraging)(θ::ParameterTypes, Oks_and_Eks_; solver=nothing, kwargs...)
     @assert solver !== nothing "solver must be specified"
     sr = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
 

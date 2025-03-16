@@ -28,7 +28,7 @@ mutable struct Euler <: AbstractIntegrator
 end
 
 # Euler integrator step function
-function (integrator::Euler)(θ::AbstractVector, Oks_and_Eks_; kwargs...)
+function (integrator::Euler)(θ::ParameterTypes, Oks_and_Eks_; kwargs...)
     if kwargs[:timer] !== nothing 
         natural_gradient = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ, Oks_and_Eks_; kwargs...) 
     else
@@ -38,7 +38,7 @@ function (integrator::Euler)(θ::AbstractVector, Oks_and_Eks_; kwargs...)
     if integrator.use_clipping
         clamp_and_norm!(g, integrator.clip_val, integrator.clip_norm)
     end
-    θ = θ .+ integrator.lr .* g
+    θ = θ + integrator.lr .* g
     integrator.step += 1
     return θ, natural_gradient
 end

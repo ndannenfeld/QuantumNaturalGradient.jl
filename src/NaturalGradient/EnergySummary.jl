@@ -5,11 +5,15 @@ struct EnergySummary{T <: Number}
     var::Float64
     std_of_var::Float64
     importance_weights::Union{Vector{Float64}, Nothing}
+    saved_properties
+
+    EnergySummary(data::Vector{T}, mean::T, std_of_mean::Float64, var::Float64, std_of_var::Float64, importance_weights::Union{Vector{Float64}, Nothing}; saved_properties=nothing) where T <: Number =
+        new{T}(data, mean, std_of_mean, var, std_of_var, importance_weights, saved_properties)
 end
 
 EnergySummary(ψ::MPS, H::MPO; sample_nr=1000) = EnergySummary([Ek(ψ, H) for _ in 1:sample_nr])
 
-function EnergySummary(Eks::Vector{Complex{Float64}}; importance_weights=nothing, mean_=nothing, var_=nothing)
+function EnergySummary(Eks::Vector{Complex{Float64}}; importance_weights=nothing, mean_=nothing, var_=nothing, kwargs...)
     if any(imag.(Eks) .> 1e-10)
         if mean_ === nothing
             mean_ = wmean(Eks; weights_=importance_weights)
@@ -29,12 +33,12 @@ function EnergySummary(Eks::Vector{Complex{Float64}}; importance_weights=nothing
             std_of_mean = sqrt(real.(var_))
             std_of_var = std(Eks_c .* conj(Eks_c))
         end
-        return EnergySummary(Eks_c, mean_, std_of_mean, real.(var_), real.(std_of_var), importance_weights)
+        return EnergySummary(Eks_c, mean_, std_of_mean, real.(var_), real.(std_of_var), importance_weights; kwargs...)
     end
-    return EnergySummary(real.(Eks); importance_weights)
+    return EnergySummary(real.(Eks); importance_weights, kwargs...)
 end
 
-function EnergySummary(Eks::Vector{Float64}; importance_weights=nothing, mean_=nothing, var_=nothing)
+function EnergySummary(Eks::Vector{Float64}; importance_weights=nothing, mean_=nothing, var_=nothing, kwargs...)
     local std_of_var
     if mean_ === nothing || var_ === nothing
         mean_, var_ = wmean_and_var(Eks; weights_=importance_weights)
@@ -52,7 +56,7 @@ function EnergySummary(Eks::Vector{Float64}; importance_weights=nothing, mean_=n
         std_of_var = std(Eks_c .^ 2)
     end
 
-    return EnergySummary(Eks_c, mean_, std_of_mean, var_, std_of_var, importance_weights)
+    return EnergySummary(Eks_c, mean_, std_of_mean, var_, std_of_var, importance_weights; kwargs...)
 end
 
 Statistics.mean(Es::EnergySummary) = Es.mean
@@ -117,7 +121,7 @@ function Base.show(io::IO, Es::EnergySummary)
 end
 
 
-function EnergySummary(θ::Vector, Eks_; sample_nr=100, timer=TimerOutput(), kwargs_Eks=Dict(), kwargs...)
+function EnergySummary(θ::ParameterTypes, Eks_; sample_nr=100, timer=TimerOutput(), kwargs_Eks=Dict(), kwargs...)
     out = @timeit timer "Eks" Eks_(θ, sample_nr; kwargs_Eks...)
     kwargs = Dict{Any, Any}(kwargs...)
     saved_properties = Dict{Symbol, Any}()
@@ -136,6 +140,14 @@ function EnergySummary(θ::Vector, Eks_; sample_nr=100, timer=TimerOutput(), kwa
         @assert length(Eks) == 3 "Eks should be a Tuple with 3 elements, Eks, Ek_mean and Ek_var"
         Eks, kwargs[:Eks_mean], kwargs[:Eks_var] = Eks
     end
+
+    saved_properties = Dict{Symbol, Any}()
+    for key in keys(out)
+        if !(key in [:Eks, :Oks, :logψs, :samples, :weights])
+            saved_properties[key] = out[key]
+        end
+    end
+    kwargs[:saved_properties] = saved_properties
 
     return EnergySummary(Eks; kwargs...)
 end
