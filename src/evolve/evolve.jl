@@ -38,7 +38,7 @@ function (integrator::Euler)(θ::ParameterTypes, Oks_and_Eks_; kwargs...)
     if integrator.use_clipping
         clamp_and_norm!(g, integrator.clip_val, integrator.clip_norm)
     end
-    θ = θ + integrator.lr .* g
+    θ .+= integrator.lr .* g
     integrator.step += 1
     return θ, natural_gradient
 end
@@ -168,7 +168,7 @@ function evolve(Oks_and_Eks_, θ::T;
     transform! = (o, x) -> x,
     verbosity=0,
     logger_funcs=[], 
-    copy=true, 
+    copy=false, 
     misc_restart=nothing, 
     discard_outliers=0.,
     timer=TimerOutput(), gradtol=1e-10) where {T}

@@ -29,6 +29,9 @@ Base.show(io::IO, ng::NaturalGradient) = print(io, "NaturalGradient($(ng.Es), td
 
 
 function get_θdot(ng::NaturalGradient; θtype=ComplexF64)
+    if eltype(ng.θdot) === θtype
+        return ng.θdot
+    end
     if eltype(ng.θdot) <: Real
         return real(θtype).(ng.θdot)
     else
