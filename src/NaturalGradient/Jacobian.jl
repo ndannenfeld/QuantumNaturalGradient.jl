@@ -10,8 +10,8 @@ struct Jacobian{T <: Number}
         end
         if inplace
             #m .-= data_mean
-            Threads.@threads for i in 1:size(m, 1)
-                @views m[i, :] .-= data_mean
+            for i in 1:size(m, 1)
+                @views m[i, :] .-= data_mean[1, :]
             end
         else
             m = m .- data_mean
@@ -41,8 +41,8 @@ struct Jacobian{T <: Number}
     function Jacobian(m::AbstractMatrix{T}, data_mean::Vector{T}; importance_weights=nothing, inplace=true) where T <: Number
         if importance_weights !== nothing
             if inplace
-                Threads.@threads for j in 1:size(mt, 1)
-                    @views mt[j, :] .*= sqrt(importance_weights[j])
+                Threads.@threads for j in 1:size(m, 1)
+                    @views m[j, :] .*= sqrt(importance_weights[j])
                 end
             else
                 m = m .* sqrt.(importance_weights)
