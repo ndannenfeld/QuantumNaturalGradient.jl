@@ -3,7 +3,7 @@ function Ek(ψ::MPS, H::MPO; kwargs...)
     return Ek(ψ, H, sample_; kwargs...)
 end
 
-function Ek(ψ::MPS, H::MPO, sample_; get_amplitude=false, kwargs...)
+#=function Ek(ψ::MPS, H::MPO, sample_; get_amplitude=false, kwargs...)
     hilbert = siteinds(ψ)
     
     mps_sample = productstate(hilbert, sample_ .- 1)
@@ -14,4 +14,4 @@ function Ek(ψ::MPS, H::MPO, sample_; get_amplitude=false, kwargs...)
     end
     
     return Ek / ψσ
-end
+end=#
