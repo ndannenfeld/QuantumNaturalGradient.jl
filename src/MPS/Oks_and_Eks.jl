@@ -113,7 +113,7 @@ function Ok_and_Ek(θ, construct_mps, H::MPO; force_holomorphic=false, kwargs...
 end
 
 
-function Ok_and_Ek(ψ::MPS, H::MPO, sample_, pull; θ_complex=false, check_holomorpic=false, kwargs...)
+#=function Ok_and_Ek(ψ::MPS, H::MPO, sample_, pull; θ_complex=false, check_holomorpic=false, kwargs...)
     hilbert = siteinds(ψ)
     
     mps_sample = productstate(hilbert, sample_ .- 1)
@@ -131,9 +131,9 @@ function Ok_and_Ek(ψ::MPS, H::MPO, sample_, pull; θ_complex=false, check_holom
     g = complex_gradient(full_pull; complex_input=θ_complex, complex_output=ψσ isa Complex, check_holomorpic)
 
     return g, Ek / ψσ, logψσ
-end
+end=#
 
-function Ok_and_Ek(ψ::MPS, loglike::Number, H::MPO, sample_, pull; θ_complex=false, check_holomorpic=false, kwargs...)
+#=function Ok_and_Ek(ψ::MPS, loglike::Number, H::MPO, sample_, pull; θ_complex=false, check_holomorpic=false, kwargs...)
     """
     Compute the gradient and energy of the wave function ψ.
     """
@@ -153,4 +153,4 @@ function Ok_and_Ek(ψ::MPS, loglike::Number, H::MPO, sample_, pull; θ_complex=f
     pull_ = x -> pull((pull_logψσ((nothing, x))..., x./2))
     Ok = complex_gradient(pull_; complex_input=θ_complex, complex_output=ψσ isa Complex, check_holomorpic)
     return Ok, Ek / ψσ, logψσ + loglike/2
-end
+end=#
