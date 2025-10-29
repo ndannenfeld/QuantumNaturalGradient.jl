@@ -20,7 +20,7 @@ using DataFrames
 using Zygote
 
 using ITensors
-using PastaQ: productstate
+#using PastaQ: productstate
 
 include("parameters.jl")
 include("distributed_extension.jl")
