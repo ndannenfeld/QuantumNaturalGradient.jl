@@ -20,6 +20,7 @@ using DataFrames
 using Zygote
 
 using ITensors
+using ITensorMPS
 #using PastaQ: productstate
 
 include("parameters.jl")
