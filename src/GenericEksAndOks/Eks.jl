@@ -10,6 +10,17 @@ Base.ndims(t::TensorOperatorSum) = ndims(t.hilbert)
 
 Base.show(io::IO, t::TensorOperatorSum) = print(io, "TensorOperatorSum(nr_tensors=$(length(t.tensors)), hilbert_size=$(size(t)))")
 
+function cull_sites(sites)
+    z = copy(sites)
+    for i in 1:length(sites)
+       inds= findall(x -> x==sites[i], sites)[2:end]
+    z[inds] .= 0
+    end
+    #pop all things that are zeroa
+    inds= findall(x -> x==0, z)
+    deleteat!(z,inds)
+    return z
+end
 
 """
     TensorOperatorSum(tensors, hilbert, sites)
@@ -143,7 +154,7 @@ function get_precomp_sOψ_elems(tso::TensorOperatorSum, sample_::Array{T, N}; su
     @assert all(sample_o .> 0) "Sample must be composed of positive integers instead of $sample_"
     
     for (tensor, sites) in zip(tso.tensors, tso.sites)
-        get_precomp_sOψ_elems!(tensor, sites, sample_o, tso.hilbert[:]; sum_precompute, offset, kwargs...)
+        get_precomp_sOψ_elems!(tensor, cull_sites(sites), sample_o, tso.hilbert[:]; sum_precompute, offset, kwargs...)
     end
     
     # Remove zeros and make real if the imaginary part is too small
