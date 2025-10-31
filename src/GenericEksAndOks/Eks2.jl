@@ -205,7 +205,7 @@ function get_precomp_sOψ_elems(tso::TensorOperatorSum, sample_::Array{T, N}; su
     @assert all(sample_o .> 0) "Sample must be composed of positive integers instead of $sample_"
     
     for (tensor, sites) in zip(tso.tensors, tso.sites)
-        get_precomp_sOψ_elems!(tensor, sites, sample_o, tso.hilbert[:]; sum_precompute, offset, kwargs...)
+        get_precomp_sOψ_elems!(tensor, cull_sites(sites), sample_o, tso.hilbert[:]; sum_precompute, offset, kwargs...)
     end
 
     for (tensor, dimen, sites) in zip(tso.diag_tensors, tso.diag_dims, tso.diag_sites)
