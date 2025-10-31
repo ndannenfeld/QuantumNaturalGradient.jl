@@ -11,6 +11,18 @@ end
 Base.size(t::TensorOperatorSum, args...) = size(t.hilbert, args...)
 Base.ndims(t::TensorOperatorSum) = ndims(t.hilbert)
 
+function cull_sites(sites)
+    z = copy(sites)
+    for i in 1:length(sites)
+       inds= findall(x -> x==sites[i], sites)[2:end]
+    z[inds] .= 0
+    end
+    #pop all things that are zeroa
+    inds= findall(x -> x==0, z)
+    deleteat!(z,inds)
+    return z
+end
+
 """
     TensorOperatorSum(tensors, hilbert, sites)
     Generates a TensorOperatorSum from a hamiltonian and a hilbert space. It precomputes the sites where the operator acts on.
