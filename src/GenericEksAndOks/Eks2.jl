@@ -11,6 +11,30 @@ end
 Base.size(t::TensorOperatorSum, args...) = size(t.hilbert, args...)
 Base.ndims(t::TensorOperatorSum) = ndims(t.hilbert)
 
+function TensorOperatorSum_legacy(ham::OpSum, hilbert::Array; combine_tensors=true)
+    
+    tensors = Vector{ITensor}(undef, length(ham))
+    sites = Vector{Vector{Int}}(undef, length(ham))
+    hilbert_flat = hilbert
+    if ndims(hilbert) > 1
+        hilbert_flat = hilbert[:]
+        ## Reduce dimensionality of hamiltonian to 1D for compatibility pourposes
+        ham = reduce_dim(ham, size(hilbert))
+    end
+    
+    for (i, o) in enumerate(ham)
+        tensors[i] = ITensor(o, hilbert[:])
+        sites[i] = get_active_sites(o)
+    end
+    tso = TensorOperatorSum(tensors, hilbert, sites)
+    if combine_tensors
+        tso = combine_tensors_at_same_site(tso)
+    end
+
+    cast_real_if_complex_is_zero!(tso)
+    return tso
+end
+
 function cull_sites(sites)
     z = copy(sites)
     for i in 1:length(sites)
