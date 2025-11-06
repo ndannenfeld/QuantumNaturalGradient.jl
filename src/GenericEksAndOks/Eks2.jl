@@ -10,7 +10,11 @@ struct TensorOperatorSum <: AbstractTensorOperatorSum
 end
 Base.size(t::TensorOperatorSum, args...) = size(t.hilbert, args...)
 Base.ndims(t::TensorOperatorSum) = ndims(t.hilbert)
-
+struct TensorOperatorSum_legacy <: AbstractTensorOperatorSum
+    tensors::Vector{ITensor}
+    hilbert::Array{<:Index}
+    sites::Vector{Vector}
+end
 function TensorOperatorSum_legacy(ham::OpSum, hilbert::Array; combine_tensors=true)
     
     tensors = Vector{ITensor}(undef, length(ham))
@@ -26,7 +30,7 @@ function TensorOperatorSum_legacy(ham::OpSum, hilbert::Array; combine_tensors=tr
         tensors[i] = ITensor(o, hilbert[:])
         sites[i] = get_active_sites(o)
     end
-    tso = TensorOperatorSum(tensors, hilbert, sites)
+    tso = TensorOperatorSum_legacy(tensors, hilbert, sites)
     if combine_tensors
         tso = combine_tensors_at_same_site(tso)
     end
