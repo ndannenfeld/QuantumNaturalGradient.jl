@@ -1,2 +1,2 @@
-include("Eks2.jl")
+include("Eks.jl")
 include("Sample/Sample.jl")
