@@ -88,12 +88,15 @@ get_precomp_sOψ_elems(
 """
 function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilbert; sum_precompute=DefaultOrderedDict(()->0), offset=1)
     
+    sites =sort(sites)
     sample_r = sample_[sites]
     hilbert_r = hilbert[sites]
-    
+    hilbert_r_extra = append!(hilbert_r,prime(hilbert_r))
+    hilbert_r = hilbert[sites]
     indices_sample = collect(hi' => s for (hi, s) in zip(hilbert_r, sample_r)) # Selects the indices that act on the tensor from the left O|s>
-    
-    tensor_proj = onehot(eltype(tensor), indices_sample) * tensor # <s'|T
+    perme = NDTensors.getperm(ITensors.inds(tensor), hilbert_r_extra)
+    tensor_extra =  ITensor(permutedims(tensor.tensor,perme))
+    tensor_proj = onehot(indices_sample) * tensor_extra # <s'|T
     
     # Make sure that the indices have the right permutation
     perm = NDTensors.getperm(ITensors.inds(tensor_proj), hilbert_r)
