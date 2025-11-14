@@ -90,7 +90,7 @@ function get_precomp_sOψ_elems!(tensor::ITensor, sites::Vector, sample_, hilber
     l_b = length(sites)
     sites = cull_sites(sites)
     l_a = length(sites)
-    if l_a != L_b && length(sites)==3
+    if l_a != l_b && length(sites)==3
     sites =sort(sites)
     sample_r = sample_[sites]
     hilbert_r = hilbert[sites]
