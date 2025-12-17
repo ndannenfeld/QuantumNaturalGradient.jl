@@ -91,7 +91,7 @@ end
 
 function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
     importance_weights=nothing, Eks_mean=nothing, Eks_var=nothing, Oks_mean=nothing,
-    solver=nothing, discard_outliers=0., timer=TimerOutput(), verbose=true, saved_properties=nothing) 
+    solver=nothing, discard_outliers=0., timer=TimerOutput(), verbose=true, saved_properties=nothing)
 
     if importance_weights !== nothing
         importance_weights ./= mean(importance_weights)
@@ -100,12 +100,17 @@ function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
     if discard_outliers > 0
         Eks, Oks, logψσs, samples, importance_weights = remove_outliers!(Eks, Oks, logψσs, samples, importance_weights; importance_weights, cut=discard_outliers, verbose)
     end
+
+    # XXX XXX XXX XXX XXX XXX
+    # THIS IS A CONTENDER FOR "WHERE TO ADD AN I". In the following lines. the Eks and Oks are manipulated for further calculations leading to the solver. [Of course, it has to be checked that these manipulations still work if I add the i here, or if I have to do it later. -> Jacobian seems to manipulate Oks into a new matrix (using importance weights). EnergySummary seems to ..?]
+    Oks .*= im
     
     Es = EnergySummary(Eks; importance_weights, mean_=Eks_mean, var_=Eks_var)
     J = @timeit timer "jacobi_mean" Jacobian(Oks; importance_weights, mean_=Oks_mean)
 
     ng = NaturalGradient(samples, J, Es, logψσs; importance_weights, saved_properties)
 
+    # if solver !== nothing, then it's a function that has been passed to the evolve funnction earlier (cf. min. working example: `solver = QNG.EigenSolver()`)
     if solver !== nothing
         @timeit timer "solver" solver(ng; timer)
     end
