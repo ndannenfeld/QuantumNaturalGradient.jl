@@ -38,5 +38,6 @@ include("evolve/evolve_old.jl")
 include("remove_params.jl")
 include("init_params.jl")
 
+include("branch_test.jl")
 
 end # module QuantumNaturalGradient
