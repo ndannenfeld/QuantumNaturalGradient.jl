@@ -38,6 +38,7 @@ function (integrator::Euler)(θ::ParameterTypes, Oks_and_Eks_; kwargs...)
     if integrator.use_clipping
         clamp_and_norm!(g, integrator.clip_val, integrator.clip_norm)
     end
+    g .*= im # now, it's real-time evolution instead of imag-time evolution
     θ .+= integrator.lr .* g
     integrator.step += 1
     return θ, natural_gradient
