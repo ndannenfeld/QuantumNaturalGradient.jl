@@ -100,11 +100,6 @@ function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
     if discard_outliers > 0
         Eks, Oks, logψσs, samples, importance_weights = remove_outliers!(Eks, Oks, logψσs, samples, importance_weights; importance_weights, cut=discard_outliers, verbose)
     end
-
-    # XXX XXX XXX XXX XXX XXX
-    # THIS IS A CONTENDER FOR "WHERE TO ADD AN I". In the following lines. the Eks and Oks are manipulated for further calculations leading to the solver. [Of course, it has to be checked that these manipulations still work if I add the i here, or if I have to do it later. -> Jacobian seems to manipulate Oks into a new matrix (using importance weights). EnergySummary seems to ..?]
-    Oks .*= im
-    # XXX XXX XXX XXX XXX XXX
     
     Es = EnergySummary(Eks; importance_weights, mean_=Eks_mean, var_=Eks_var)
     J = @timeit timer "jacobi_mean" Jacobian(Oks; importance_weights, mean_=Oks_mean)
