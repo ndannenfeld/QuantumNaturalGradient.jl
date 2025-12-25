@@ -213,9 +213,9 @@ end
 
 function step!(o::OptimizationState, dynamic_kwargs)
 
-    if o.niter-1 >= o.maxiter
+    if o.niter > o.maxiter
         if o.verbosity >= 1
-            @info "$(typeof(o.integrator)): Maximum number of iterations reached ($(o.niter))"
+            @info "$(typeof(o.integrator)): Maximum number of iterations completed ($(o.niter-1))"
         end
         return false
     end
