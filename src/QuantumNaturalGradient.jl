@@ -40,5 +40,9 @@ include("init_params.jl")
 
 # any files added by this branch are here.
 include("rte_development/rte_development.jl")
+# this is to block an accidental merge from the dev branch.
+function __init__()
+    # do nothing
+end
 
 end # module QuantumNaturalGradient
