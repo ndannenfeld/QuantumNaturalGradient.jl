@@ -91,7 +91,7 @@ end
 
 function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
     importance_weights=nothing, Eks_mean=nothing, Eks_var=nothing, Oks_mean=nothing,
-    solver=nothing, discard_outliers=0., timer=TimerOutput(), verbose=true, saved_properties=nothing) 
+    solver=nothing, discard_outliers=0., timer=TimerOutput(), verbose=true, saved_properties=nothing)
 
     if importance_weights !== nothing
         importance_weights ./= mean(importance_weights)
@@ -106,6 +106,7 @@ function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
 
     ng = NaturalGradient(samples, J, Es, logψσs; importance_weights, saved_properties)
 
+    # if solver !== nothing, then it's a function that has been passed to the evolve funnction earlier (cf. min. working example: `solver = QNG.EigenSolver()`)
     if solver !== nothing
         @timeit timer "solver" solver(ng; timer)
     end

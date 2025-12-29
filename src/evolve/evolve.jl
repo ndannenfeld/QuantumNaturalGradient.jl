@@ -28,7 +28,7 @@ mutable struct Euler <: AbstractIntegrator
 end
 
 # Euler integrator step function
-function (integrator::Euler)(θ::ParameterTypes, Oks_and_Eks_; kwargs...)
+function (integrator::Euler)(θ::ParameterTypes, Oks_and_Eks_, mode::String="IMAG"; kwargs...)
     if kwargs[:timer] !== nothing 
         natural_gradient = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ, Oks_and_Eks_; kwargs...) 
     else
@@ -37,6 +37,9 @@ function (integrator::Euler)(θ::ParameterTypes, Oks_and_Eks_; kwargs...)
     g = get_θdot(natural_gradient; θtype=eltype(θ))
     if integrator.use_clipping
         clamp_and_norm!(g, integrator.clip_val, integrator.clip_norm)
+    end
+    if mode == "REAL"
+        g .*= im # now, it's real-time evolution instead of imag-time evolution
     end
     θ .+= integrator.lr .* g
     integrator.step += 1
@@ -151,6 +154,7 @@ function set_rng(r)
     t.rngState3 = r[4]
 end
 
+# as of now, this wrapper has not been adapted to call evolve(Oks_and_Eks_, theta) with Real Time Evolution, i.e. the call will default to imaginary time evolution and there is no argument to choose the mode.
 function evolve(construct_mps, θ::T, H; integrator=Euler(0.1), maxiter=10, callback=(args...; kwargs...) -> nothing, 
     logger_funcs=[], copy=true, misc_restart=nothing, timer=TimerOutput(), kwargs...) where {T}
     
@@ -159,7 +163,7 @@ function evolve(construct_mps, θ::T, H; integrator=Euler(0.1), maxiter=10, call
     return energy, θ, construct_mps(θ), misc
 end
 
-function evolve(Oks_and_Eks_, θ::T; 
+function evolve(Oks_and_Eks_, θ::T, mode::String="IMAG"; 
     integrator=Euler(0.1),
     solver=EigenSolver(1e-6),
     maxiter=10, 
@@ -172,6 +176,14 @@ function evolve(Oks_and_Eks_, θ::T;
     misc_restart=nothing, 
     discard_outliers=0.,
     timer=TimerOutput(), gradtol=1e-10) where {T}
+
+    if mode != "IMAG" && mode != "REAL"
+        @warn "Unknown mode keyword, defaulting to \"IMAG\", i.e. imaginary-time evolution. For real-time evolution choose \"REAL\"."
+    end
+
+    if verbosity >= 1
+        @info "Evolving the state in $(mode == "REAL" ? "real" : "imaginary") time."
+    end
 
     if copy
         θ = deepcopy(θ)
@@ -192,13 +204,13 @@ function evolve(Oks_and_Eks_, θ::T;
         maxiter, gradtol, verbosity
     )
 
-    return evolve!(state)
+    return evolve!(state, mode)
 end
 
-function evolve!(state::OptimizationState)
+function evolve!(state::OptimizationState, mode::String="IMAG")
     # Main optimization loop
     dynamic_kwargs = Dict()
-    while step!(state, dynamic_kwargs)
+    while step!(state, dynamic_kwargs, mode)
     end
 
     if state.verbosity >= 2
@@ -210,7 +222,7 @@ function evolve!(state::OptimizationState)
     return state.energy, state.θ, get_misc(state)
 end
 
-function step!(o::OptimizationState, dynamic_kwargs)
+function step!(o::OptimizationState, dynamic_kwargs, mode::String="IMAG")
 
     if o.niter > o.maxiter
         if o.verbosity >= 1
@@ -219,7 +231,7 @@ function step!(o::OptimizationState, dynamic_kwargs)
         return false
     end
 
-    o.θ, natural_gradient = @timeit o.timer "integrator" o.integrator(o.θ, o.Oks_and_Eks; sample_nr=o.sample_nr, solver=o.solver, discard_outliers=o.discard_outliers, timer=o.timer, dynamic_kwargs...)
+    o.θ, natural_gradient = @timeit o.timer "integrator" o.integrator(o.θ, o.Oks_and_Eks, mode; sample_nr=o.sample_nr, solver=o.solver, discard_outliers=o.discard_outliers, timer=o.timer, dynamic_kwargs...)
     
     # Transform the optimization state and natural_gradient
     natural_gradient = o.transform!(o, natural_gradient)
