@@ -182,7 +182,7 @@ function evolve(Oks_and_Eks_, θ::T, mode::String="IMAG";
     end
 
     if verbosity >= 1
-        @info "Evolving the state in $(mode == "REAL" ? "real" : "imaginary") time."
+        @info "Evolving in $(mode == "REAL" ? "real" : "imaginary") time"
     end
 
     if copy
