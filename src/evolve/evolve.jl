@@ -178,13 +178,13 @@ function evolve(Oks_and_Eks_, θ::T, mode::String="IMAG";
     timer=TimerOutput(), gradtol=1e-10) where {T}
 
     if mode != "IMAG" && mode != "REAL"
-        @warn "QuantumNaturalGradient: Unknown value for mode argument, defaulting to \"IMAG\", i.e. imaginary-time evolution. For real-time evolution choose \"REAL\"."
+        @warn "QuantumNaturalGradient.evolve: Unknown value for mode argument, defaulting to \"IMAG\", i.e. imaginary-time evolution. For real-time evolution choose \"REAL\"."
         flush(stdout); flush(stderr)
         mode = "IMAG"
     end
 
     if verbosity >= 1
-        @info "QuantumNaturalGradient: Evolving in $(mode == "REAL" ? "real" : "imaginary") time"
+        @info "Evolving in $(mode == "REAL" ? "real" : "imaginary") time"
         flush(stdout); flush(stderr)
     end
 
@@ -217,8 +217,9 @@ function evolve!(state::OptimizationState, mode::String="IMAG")
     end
 
     if state.verbosity >= 2
-        @info "evolve: Done"
+        @info "QuantumNaturalGradient.evolve: Done"
         show(state.timer)
+        flush(stdout); flush(stderr)
     end
 
     # Collect the results
@@ -256,6 +257,8 @@ function step!(o::OptimizationState, dynamic_kwargs, mode::String="IMAG")
     end
     
     if stop === false
+        @info "QuantumNaturalGradient.evovle: Ending evolution because callback function has returned false."
+        flush(stdout); flush(stderr)
         return false
     end
 
