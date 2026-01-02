@@ -219,6 +219,7 @@ function evolve!(state::OptimizationState, mode::String="IMAG")
     if state.verbosity >= 2
         @info "QuantumNaturalGradient.evolve: Done"
         show(state.timer)
+        @info "" # empty line after show(timer)
         flush(stdout); flush(stderr)
     end
 
