@@ -228,6 +228,7 @@ function step!(o::OptimizationState, dynamic_kwargs, mode::String="IMAG")
     if o.niter > o.maxiter
         if o.verbosity >= 1
             @info "$(typeof(o.integrator)): Maximum number of iterations completed ($(o.niter-1))"
+            flush(stdout); flush(stderr)
         end
         return false
     end
@@ -249,8 +250,7 @@ function step!(o::OptimizationState, dynamic_kwargs, mode::String="IMAG")
 
     if o.verbosity >= 2
         @info "iter $(o.niter): $(natural_gradient.Es), ‖θdot‖ = $(norm_natgrad), ‖θ‖ = $(norm_θ), tdvp_error = $(natural_gradient.tdvp_error)"
-        flush(stdout)
-        flush(stderr)
+        flush(stdout); flush(stderr)
     end
     
     if stop === false
@@ -260,6 +260,7 @@ function step!(o::OptimizationState, dynamic_kwargs, mode::String="IMAG")
     if norm_natgrad < o.gradtol
         if o.verbosity >= 1
             @info "$(typeof(o.integrator)): Gradient tolerance reached"
+            flush(stdout); flush(stderr)
         end
         return false
     end
