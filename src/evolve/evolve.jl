@@ -179,11 +179,13 @@ function evolve(Oks_and_Eks_, θ::T, mode::String="IMAG";
 
     if mode != "IMAG" && mode != "REAL"
         @warn "QuantumNaturalGradient: Unknown value for mode argument, defaulting to \"IMAG\", i.e. imaginary-time evolution. For real-time evolution choose \"REAL\"."
+        flush(stdout); flush(stderr)
         mode = "IMAG"
     end
 
     if verbosity >= 1
         @info "QuantumNaturalGradient: Evolving in $(mode == "REAL" ? "real" : "imaginary") time"
+        flush(stdout); flush(stderr)
     end
 
     if copy
