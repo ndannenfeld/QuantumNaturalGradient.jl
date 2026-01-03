@@ -265,7 +265,7 @@ function step!(o::OptimizationState, dynamic_kwargs, mode::String="IMAG")
 
     if norm_natgrad < o.gradtol
         if o.verbosity >= 1
-            @info "$(typeof(o.integrator)): Gradient tolerance reached"
+            @info "$(typeof(o.integrator)): Gradient tolerance reached (after $(o.n_iter) steps)"
             flush(stdout); flush(stderr)
         end
         return false
