@@ -258,14 +258,14 @@ function step!(o::OptimizationState, dynamic_kwargs, mode::String="IMAG")
     end
     
     if stop === false
-        @info "QuantumNaturalGradient.evovle: Callback function has returned false (after $(o.niter) steps)"
+        @info "QuantumNaturalGradient.evovle: Callback function has returned false (after $(o.niter) iteration$(o.niter > 1 ? "s" : ""))"
         flush(stdout); flush(stderr)
         return false
     end
 
     if norm_natgrad < o.gradtol
         if o.verbosity >= 1
-            @info "$(typeof(o.integrator)): Gradient tolerance reached (after $(o.niter) steps)"
+            @info "$(typeof(o.integrator)): Gradient tolerance reached (after $(o.niter) iteration$(o.niter > 1 ? "s" : ""))"
             flush(stdout); flush(stderr)
         end
         return false
