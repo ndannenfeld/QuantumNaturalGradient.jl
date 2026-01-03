@@ -258,7 +258,7 @@ function step!(o::OptimizationState, dynamic_kwargs, mode::String="IMAG")
     end
     
     if stop === false
-        @info "QuantumNaturalGradient.evolve: Ending evolution because callback function has returned false (after $(o.niter) steps)"
+        @info "QuantumNaturalGradient.evovle: Callback function has returned false (after $(o.niter) steps)"
         flush(stdout); flush(stderr)
         return false
     end
