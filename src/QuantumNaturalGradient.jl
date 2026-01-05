@@ -40,9 +40,12 @@ include("init_params.jl")
 
 # any files added by this branch are here.
 include("rte_development/rte_development.jl")
-# this is to block an accidental merge from the dev branch.
+
+# this is being run when using or importing the package
 function __init__()
-    # do nothing
+    if occursin(".julia/dev/", pathof(QuantumNaturalGradient))
+        @warn "You are currently on the .julia/dev/ version of QuantumNaturalGradient."
+    end
 end
 
 end # module QuantumNaturalGradient
