@@ -24,7 +24,7 @@ mutable struct Euler <: AbstractIntegrator
     use_clipping::Bool
     clip_norm::Float64
     clip_val::Float64
-    Euler(;lr=0.05, step=0, use_clipping=false, clip_norm=5.0, clip_val=1.0) = new(lr, step, use_clipping, clip_norm, clip_val)
+    Euler(;lr=0.05, step=0, use_clipping=false, clip_norm=10.0, clip_val=1.0) = new(lr, step, use_clipping, clip_norm, clip_val)
 end
 
 # Euler integrator step function
