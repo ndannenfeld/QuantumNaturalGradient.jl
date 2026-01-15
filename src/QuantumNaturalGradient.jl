@@ -43,6 +43,7 @@ include("rte_development/rte_development.jl")
 function __init__()
     if occursin(".julia/dev/", pathof(QuantumNaturalGradient))
         @warn "You are currently on the .julia/dev/ version of QuantumNaturalGradient."
+        flush(stderr)
     end
 end
 
