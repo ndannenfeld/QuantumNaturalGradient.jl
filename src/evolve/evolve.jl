@@ -46,6 +46,87 @@ function (integrator::Euler)(θ::ParameterTypes, Oks_and_Eks_, mode::String="IMA
     return θ, natural_gradient
 end
 
+mutable struct RK4 <: AbstractIntegrator
+    lr::Float64
+    step::Integer
+    use_clipping::Bool
+    clip_norm::Float64
+    clip_val::Float64
+
+    RK4(;lr=0.05, step=0, use_clipping=false, clip_norm=5.0, clip_val=1.0) = new(lr, step, use_clipping, clip_norm, clip_val)
+end
+
+function (integrator::RK4)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::String="IMAG"; kwargs...)
+
+    θtype = eltype(θ)
+    h = integrator.lr
+
+    if mode=="REAL"
+        h *= im
+    end
+
+    if kwargs[:timer] !== nothing 
+        ng1 = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ, Oks_and_Eks_; kwargs...) 
+    else
+        ng1 = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
+    end
+    k1 = get_θdot(ng1; θtype)
+    if integrator.use_clipping
+        clamp_and_norm!(k1, integrator.clip_val, integrator.clip_norm)
+    end
+
+    # θ .+= h/6 * k1
+
+    θ2 = deepcopy(θ)  
+    θ2 .+= (h/2) .* k1
+    if kwargs[:timer] !== nothing 
+        ng2 = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ2, Oks_and_Eks_; kwargs...) 
+    else
+        ng2 = NaturalGradient(θ2, Oks_and_Eks_; kwargs...)
+    end
+    k2 = get_θdot(ng2; θtype)
+    if integrator.use_clipping
+        clamp_and_norm!(k2, integrator.clip_val, integrator.clip_norm)
+    end
+
+    # θ .+= h/6 * 2 * k2
+    
+    θ3 = deepcopy(θ)  
+    θ3 .+= (h/2) .* k2
+    if kwargs[:timer] !== nothing 
+        ng3 = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ3, Oks_and_Eks_; kwargs...) 
+    else
+        ng3 = NaturalGradient(θ3, Oks_and_Eks_; kwargs...)
+    end
+    k3 = get_θdot(ng3; θtype)
+    if integrator.use_clipping
+        clamp_and_norm!(k3, integrator.clip_val, integrator.clip_norm)
+    end
+    
+    # θ .+= h/6 * 2 * k3
+
+    θ4 = deepcopy(θ)  
+    θ4 .+= h .* k3
+    if kwargs[:timer] !== nothing 
+        ng4 = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ4, Oks_and_Eks_; kwargs...) 
+    else
+        ng4 = NaturalGradient(θ4, Oks_and_Eks_; kwargs...)
+    end
+    k4 = get_θdot(ng4; θtype)
+    if integrator.use_clipping 
+        clamp_and_norm!(k4, integrator.clip_val, integrator.clip_norm)
+    end
+
+    # θ .+= h/6 * k4
+
+    # GC.gc()
+    @. θ += (h/6) * (k1 + 2*k2 + 2*k3 + k4)
+
+    integrator.step += 1
+
+    return θ, ng1
+end
+
 # Initialize and manage the optimization state
 mutable struct OptimizationState
     Oks_and_Eks::Function
