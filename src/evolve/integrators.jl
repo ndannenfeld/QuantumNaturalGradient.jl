@@ -29,19 +29,21 @@ end
 
 # Euler integrator step function
 function (integrator::Euler)(θ::ParameterTypes, Oks_and_Eks_, mode::String="IMAG"; kwargs...)
+    
+    θtype = eltype(θ)
+    h = integrator.lr
+    if mode=="REAL" h *= im end
+
     if kwargs[:timer] !== nothing 
         natural_gradient = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ, Oks_and_Eks_; kwargs...) 
     else
         natural_gradient = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
     end
-    g = get_θdot(natural_gradient; θtype=eltype(θ))
+    g = get_θdot(natural_gradient; θtype)
     if integrator.use_clipping
         clamp_and_norm!(g, integrator.clip_val, integrator.clip_norm)
     end
-    if mode == "REAL"
-        g .*= im # now, it's real-time evolution instead of imag-time evolution
-    end
-    θ .+= integrator.lr .* g
+    θ .+= h .* g
     integrator.step += 1
     return θ, natural_gradient
 end
@@ -60,10 +62,7 @@ function (integrator::RK4)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::Str
 
     θtype = eltype(θ)
     h = integrator.lr
-
-    if mode=="REAL"
-        h *= im
-    end
+    if mode=="REAL" h *= im end
 
     if kwargs[:timer] !== nothing 
         ng1 = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ, Oks_and_Eks_; kwargs...) 
