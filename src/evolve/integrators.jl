@@ -34,20 +34,17 @@ function (integrator::Euler)(θ::ParameterTypes, Oks_and_Eks_, mode::String="IMA
     h = integrator.lr
     if mode=="REAL" h *= im end
 
-    if kwargs[:timer] !== nothing 
-        natural_gradient = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ, Oks_and_Eks_; kwargs...) 
-    else
-        natural_gradient = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
-    end
-    g = get_θdot(natural_gradient; θtype)
-    if integrator.use_clipping
-        clamp_and_norm!(g, integrator.clip_val, integrator.clip_norm)
-    end
+    ng = NaturalGradient_timeit_wrapper(θ, Oks_and_Eks_; kwargs...)
+    g = get_θdot(ng; θtype)
+    if integrator.use_clipping clamp_and_norm!(g, integrator.clip_val, integrator.clip_norm) end
+
     θ .+= h .* g
     integrator.step += 1
-    return θ, natural_gradient
+
+    return θ, ng
 end
 
+# (classic) RK4 integrator structure
 mutable struct RK4 <: AbstractIntegrator
     lr::Float64
     step::Integer
@@ -58,65 +55,34 @@ mutable struct RK4 <: AbstractIntegrator
     RK4(;lr=0.05, step=0, use_clipping=false, clip_norm=5.0, clip_val=1.0) = new(lr, step, use_clipping, clip_norm, clip_val)
 end
 
+# (classic) RK4 integrator step function
 function (integrator::RK4)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::String="IMAG"; kwargs...)
 
     θtype = eltype(θ)
     h = integrator.lr
     if mode=="REAL" h *= im end
 
-    if kwargs[:timer] !== nothing 
-        ng1 = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ, Oks_and_Eks_; kwargs...) 
-    else
-        ng1 = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
-    end
+    ng1 = NaturalGradient_timeit_wrapper(θ, Oks_and_Eks_; kwargs...)
     k1 = get_θdot(ng1; θtype)
-    if integrator.use_clipping
-        clamp_and_norm!(k1, integrator.clip_val, integrator.clip_norm)
-    end
-
-    # θ .+= h/6 * k1
+    if integrator.use_clipping clamp_and_norm!(k1, integrator.clip_val, integrator.clip_norm) end
 
     θ2 = deepcopy(θ)  
     θ2 .+= (h/2) .* k1
-    if kwargs[:timer] !== nothing 
-        ng2 = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ2, Oks_and_Eks_; kwargs...) 
-    else
-        ng2 = NaturalGradient(θ2, Oks_and_Eks_; kwargs...)
-    end
+    ng2 = NaturalGradient_timeit_wrapper(θ2, Oks_and_Eks_; kwargs...)
     k2 = get_θdot(ng2; θtype)
-    if integrator.use_clipping
-        clamp_and_norm!(k2, integrator.clip_val, integrator.clip_norm)
-    end
-
-    # θ .+= h/6 * 2 * k2
+    if integrator.use_clipping clamp_and_norm!(k2, integrator.clip_val, integrator.clip_norm) end
     
     θ3 = deepcopy(θ)  
     θ3 .+= (h/2) .* k2
-    if kwargs[:timer] !== nothing 
-        ng3 = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ3, Oks_and_Eks_; kwargs...) 
-    else
-        ng3 = NaturalGradient(θ3, Oks_and_Eks_; kwargs...)
-    end
+    ng3 = NaturalGradient_timeit_wrapper(θ3, Oks_and_Eks_; kwargs...)
     k3 = get_θdot(ng3; θtype)
-    if integrator.use_clipping
-        clamp_and_norm!(k3, integrator.clip_val, integrator.clip_norm)
-    end
-    
-    # θ .+= h/6 * 2 * k3
+    if integrator.use_clipping clamp_and_norm!(k3, integrator.clip_val, integrator.clip_norm) end
 
     θ4 = deepcopy(θ)  
     θ4 .+= h .* k3
-    if kwargs[:timer] !== nothing 
-        ng4 = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ4, Oks_and_Eks_; kwargs...) 
-    else
-        ng4 = NaturalGradient(θ4, Oks_and_Eks_; kwargs...)
-    end
+    ng4 = NaturalGradient_timeit_wrapper(θ4, Oks_and_Eks_; kwargs...)
     k4 = get_θdot(ng4; θtype)
-    if integrator.use_clipping 
-        clamp_and_norm!(k4, integrator.clip_val, integrator.clip_norm)
-    end
-
-    # θ .+= h/6 * k4
+    if integrator.use_clipping clamp_and_norm!(k4, integrator.clip_val, integrator.clip_norm) end
 
     # GC.gc()
     @. θ += (h/6) * (k1 + 2*k2 + 2*k3 + k4)
