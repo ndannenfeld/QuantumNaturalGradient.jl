@@ -4,7 +4,7 @@ abstract type AbstractCompositeIntegrator <: AbstractIntegrator end
 abstract type AbstractSchedule end
 
 function Base.getproperty(integrator::AbstractCompositeIntegrator, property::Symbol)
-    if property === :lr || property === :step || property === A || property === B || property === C
+    if property === :lr || property === :step
         return getproperty(integrator.integrator, property)
     else
         return getfield(integrator, property)
