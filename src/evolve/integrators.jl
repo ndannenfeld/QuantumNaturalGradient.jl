@@ -165,7 +165,7 @@ end
 # end
 
 # Ralstons RK4 integrator structure
-# (Ralstons RK4 scheme minimizes the local truncatino error)
+# (Ralstons RK4 scheme minimizes the local truncation error for a certain type of problems)
 mutable struct RK4_Ralston <: AbstractIntegrator
     lr::Float64
     step::Integer
@@ -237,7 +237,7 @@ end
 
 #=  RK45 (DOPRI5) integrator structure
  This scheme uses 7 evaluations per step (practically 6, because of FSAL) to get a 5th-order global error.
- Because the 4th order accurate solution can be computed with no additional evaluations, it would also be possible to calculate the error of the 4th order solution in every step and implement an adaptive stepsize based on that (give RK45 struct additional fields B_4th_order, current_error and error_tol, then in every loop calculate and update current_error and "if current_error > error_tol : augment integrator.step : decrease integrator.step").
+ Because the 4th order accurate solution can be computed with no additional evaluations, it would also be possible to calculate the error of the 4th order solution in every step and implement an adaptive stepsize based on that (give RK45 struct additional fields B_4th_order, current_error and error_tol, then in every loop calculate and update current_error and "if current_error > error_tol : decrease integrator.step (and optionally repeat the current step) : augment integrator.step (or don't change anything)").
 =#
  mutable struct RK45 <: AbstractIntegrator
     lr::Float64
