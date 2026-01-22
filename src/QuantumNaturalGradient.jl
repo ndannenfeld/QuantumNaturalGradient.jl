@@ -37,8 +37,6 @@ include("evolve/evolve_old.jl")
 include("remove_params.jl")
 include("init_params.jl")
 
-include("rte_development/rte_development.jl")
-
 # warns when using or importing the package from .julia/dev
 function __init__()
     if occursin(".julia/dev/", pathof(QuantumNaturalGradient))
