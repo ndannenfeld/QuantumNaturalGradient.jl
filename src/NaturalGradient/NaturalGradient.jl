@@ -107,7 +107,7 @@ function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
 
     ng = NaturalGradient(samples, J, Es, logψσs; importance_weights, saved_properties)
 
-    # if solver !== nothing, then it's a function that has been passed to the evolve funnction earlier (cf. min. working example: `solver = QNG.EigenSolver()`)
+    # if solver !== nothing, then it's a function that has been passed to the evolve function earlier (cf. min. working example: `solver = QNG.EigenSolver()`)
     if solver !== nothing
         @timeit timer "solver" solver(ng; timer)
     end
