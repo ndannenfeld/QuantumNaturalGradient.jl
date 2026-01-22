@@ -144,7 +144,7 @@ end
 #     # first natural gradient (i.e. of the current state before updating) will be saved and later returned alongside the updated θ 
 #     ng1 = Vector{NaturalGradient{θtype}}(undef, 1)
 
-#     for (i,b) in enumerate(bs)
+#     for i in eachindex(bs)
 #         θ_ = deepcopy(θ)
 #         for j in 1:i-1
 #             @. θ_ += h * A[i,j] * ks[j]
@@ -152,11 +152,14 @@ end
 #         ng = NaturalGradient_timeit_wrapper(θ_, Oks_and_Eks_; kwargs...)
 #         ks[i] = get_θdot(ng; θtype)
 #         if integrator.use_clipping clamp_and_norm!(ks[i], integrator.clip_val, integrator.clip_norm) end
-#         @. θ += h * b * ks[i]
 #         # keep 1st natural gradient to return later
 #         if i == 1
 #             ng1[] = ng
 #         end
+#     end
+
+#     for (b,k) in zip(bs, ks)
+#         @. θ += h * b * k
 #     end
 
 #     integrator.step += 1
@@ -229,7 +232,7 @@ function (integrator::RK4_Ralston)(θ::ParameterTypes, Oks_and_Eks_::Function, m
         end
     end
     
-    for (k,b) in zip(ks, bs)
+    for (b,k) in zip(bs, ks)
         @. θ += h * b * k
     end
 
@@ -330,7 +333,7 @@ function (integrator::RK45)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::St
         end
     end
 
-    for (k,b) in zip(ks, bs)
+    for (b,k) in zip(bs, ks)
         @. θ += h * b * k
     end
 
