@@ -249,6 +249,9 @@ end
     A::Matrix{Float64}
     B::Vector{Float64}
     C::Vector{Float64}
+    # FSAL ("first same as last") variables (stored here between integrator step function calls):
+    FSAL_k
+    FSAL_ng
 
     RK45(;lr=0.05, step=0, use_clipping=false, clip_norm=5.0, clip_val=1.0) = new(
         lr, step, use_clipping, clip_norm, clip_val,
@@ -278,7 +281,9 @@ end
              8/9,
                1,
                1
-        ]
+        ],
+        nothing,
+        nothing
     )
 end
 
@@ -304,8 +309,8 @@ function (integrator::RK45)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::St
         end
         # first evaluation from this step is identical to to the last evaluation from the previous step (unless there is no previous step).
         if i == 1 && integrator.step > 0
-            ks[1] = RK4_FSAL_k
-            ng1[] = RK4_FSAL_ng
+            ks[1] = integrator.FSAL_k
+            ng1[] = integrator.FSAL_ng
         else
             ng = NaturalGradient_timeit_wrapper(θ_, Oks_and_Eks_; kwargs...)
             # keep 1st natural gradient to return later
@@ -318,8 +323,8 @@ function (integrator::RK45)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::St
         @. θ += h * b * ks[i]
         # save last evaluation because it is identical to the first evaluation from the next step.
         if i == length(bs)
-            global RK4_FSAL_k = ks[i]
-            global RK4_FSAL_ng = ng
+            integrator.FSAL_k = ks[i]
+            integrator.FSAL_ng = ng
         end
     end
 
