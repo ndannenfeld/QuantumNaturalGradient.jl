@@ -341,3 +341,13 @@ function (integrator::RK45)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::St
 
     return θ, ng1[]
 end
+
+function (integrator::RK45)(; copy_without_FSAL::Bool=true)
+    if copy_without_FSAL
+        # create new integrator with same values but which does not have the FSAL arrays
+        slim_integrator = RK45(lr=integrator.lr, step=integrator.step, use_clipping=integrator.use_clipping, clip_norm=integrator.clip_norm, clip_val=integrator.clip_val)
+        return slim_integrator
+    else
+        return integrator
+    end
+end
