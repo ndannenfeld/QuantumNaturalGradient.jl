@@ -314,7 +314,7 @@ function (integrator::RK45)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::St
             @. θ_ += h * A[i,j] * ks[j]
         end
         # first evaluation from this step is identical to to the last evaluation from the previous step (unless there is no previous step).
-        if i == 1 && integrator.step > 0
+        if i == 1 && integrator.FSAL_k !== nothing && integrator.FSAL_ng !== nothing # check this instead of integrator.step>1, because when saving the integrator to a callback file, saving it including FSAL_k and FSAL_ng is excessive data usage, i.e. its better to set them to nothing before saving, but then in a restart scenario, step>1 but the fsals would still be nothing.
             ks[1] = integrator.FSAL_k
             ng1[] = integrator.FSAL_ng
         else
