@@ -1,4 +1,7 @@
+# -----------------------------------
 # Abstract types and common utilities
+# -----------------------------------
+
 abstract type AbstractIntegrator end
 abstract type AbstractCompositeIntegrator <: AbstractIntegrator end
 abstract type AbstractSchedule end
@@ -16,6 +19,10 @@ function clamp_and_norm!(gradients, clip_val, clip_norm)
     norm(gradients) > clip_norm ? gradients .= (gradients ./ norm(gradients)) .* clip_norm : nothing
     return gradients
 end
+
+# -----------------------------------
+# Euler Integrator
+# -----------------------------------
 
 # Euler integrator structure
 mutable struct Euler <: AbstractIntegrator
@@ -43,6 +50,10 @@ function (integrator::Euler)(θ::ParameterTypes, Oks_and_Eks_, mode::String="IMA
 
     return θ, ng
 end
+
+# -----------------------------------
+# Classic Runge Kutta 4 integrator
+# -----------------------------------
 
 # (classic) RK4 integrator structure
 mutable struct RK4 <: AbstractIntegrator
@@ -92,83 +103,150 @@ function (integrator::RK4)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::Str
     return θ, ng1
 end
 
-#= RK4_custom in its current state should be functionally identical to RK4, but can be generalized easily (to pass custom parameters etc.). However, it was observed that computations are not identital to RK4 (maybe the compiler does not optimize away all multiplications with 0?). =#
+# -----------------------------------------------------------
+# Generic Runge Kutty integrator 
+# -----------------------------------------------------------
 
-# # (classic) RK4 integrator structure
-# mutable struct RK4_custom <: AbstractIntegrator
-#     lr::Float64
-#     step::Integer
-#     use_clipping::Bool
-#     clip_norm::Float64
-#     clip_val::Float64
-#     # values from Butchers tableau:
-#     A::Matrix{Float64}
-#     B::Vector{Float64}
-#     C::Vector{Float64}
+# generic Runge Kutta integrator step function (compatible with any of the following RK type structs)
+function generic_RK_step(integrator::AbstractIntegrator, θ::ParameterTypes, Oks_and_Eks_::Function, mode::String="IMAG"; kwargs...)
 
-#     RK4_custom(;lr=0.05, step=0, use_clipping=false, clip_norm=5.0, clip_val=1.0) = new(
-#         lr, step, use_clipping, clip_norm, clip_val,
-#         [ # A coefficients of Butchers tableau
-#               0    0  0  0;
-#             1/2    0  0  0;
-#               0  1/2  0  0;
-#               0    0  1  0
-#         ],
-#         [ # b coefficients of Butchers tableau
-#             1/6,
-#             1/3,
-#             1/3,
-#             1/6
-#         ],
-#         [ # c coefficients of Butchers tableau
-#               0,
-#             1/2,
-#             1/2,
-#               1
-#         ]   
-#     )
-# end
+    let integratortype = typeof(integrator)
+        if !(hasfield(integratortype, :A) && hasfield(integratortype, :B) && hasfield(integratortype, :C))
+            throw(ArgumentError("The function generic_RK_step has to be provided with a Runge Kutta type integrator that has fields A, B and C corresponding to Butchers tableau"))
+        end
+    end
 
-# # (classic) RK4 integrator step function
-# function (integrator::RK4_custom)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::String="IMAG"; kwargs...)
+    # load parameters corresponding to Butchers tableau. The cs are not actually used here, as dθ/dt is not explicitly time dependent.
+    A, bs, cs = integrator.A, integrator.B, integrator.C
+    
+    # load learning rate, enforce real time evolution if necessary, determine eltype of the parameter vector
+    θtype = eltype(θ)
+    h = integrator.lr
+    if mode=="REAL" h *= im end
 
-#     θtype = eltype(θ)
-#     h = integrator.lr
-#     if mode=="REAL" h *= im end
+    # needed both for intermediary evaluations and final update
+    ks = Vector{Vector{θtype}}(undef, length(bs)) # note that although typeof(θ) <: QuantumNaturalGradient.Parameters,  get_θdot returns a Vector{eltype(θ)}, and that is what will be stored in ks.
+    # first natural gradient (i.e. of the current state before updating) will be saved and later returned alongside the updated θ 
+    ng1 = Vector{NaturalGradient{θtype}}(undef, 1)
 
-#     # load parameters corresponding to Butchers tableau. The cs are not actually used here, as dθ/dt is not explicitly time dependent.
-#     A, bs, cs = integrator.A, integrator.B, integrator.C
+    for i in eachindex(bs)
+        θ_ = deepcopy(θ)
+        for j in 1:i-1
+            @. θ_ += h * A[i,j] * ks[j]
+        end
+        ng = NaturalGradient_timeit_wrapper(θ_, Oks_and_Eks_; kwargs...)
+        ks[i] = get_θdot(ng; θtype)
+        if integrator.use_clipping clamp_and_norm!(ks[i], integrator.clip_val, integrator.clip_norm) end
+        # keep 1st natural gradient to return later
+        if i == 1
+            ng1[] = ng
+        end
+    end
 
-#     # needed both for intermediary evaluations and final update
-#     ks = Vector{Vector{θtype}}(undef, length(bs)) # note that although typeof(θ) <: QuantumNaturalGradient.Parameters,  get_θdot returns a Vector{eltype(θ)}, and that is what will be stored in ks.
-#     # first natural gradient (i.e. of the current state before updating) will be saved and later returned alongside the updated θ 
-#     ng1 = Vector{NaturalGradient{θtype}}(undef, 1)
+    for (b,k) in zip(bs, ks)
+        @. θ += h * b * k
+    end
 
-#     for i in eachindex(bs)
-#         θ_ = deepcopy(θ)
-#         for j in 1:i-1
-#             @. θ_ += h * A[i,j] * ks[j]
-#         end
-#         ng = NaturalGradient_timeit_wrapper(θ_, Oks_and_Eks_; kwargs...)
-#         ks[i] = get_θdot(ng; θtype)
-#         if integrator.use_clipping clamp_and_norm!(ks[i], integrator.clip_val, integrator.clip_norm) end
-#         # keep 1st natural gradient to return later
-#         if i == 1
-#             ng1[] = ng
-#         end
-#     end
+    integrator.step += 1
 
-#     for (b,k) in zip(bs, ks)
-#         @. θ += h * b * k
-#     end
+    return θ, ng1[]
+end
 
-#     integrator.step += 1
+#= Generic RK (Runge Kutta) integrator structure
+    Can be passed custom butchers tableaus (of any dimensionality).
+    With default A, B and C it should be functionally identical to the `RK4` struct, but it was observed that computations are not identital (maybe the compiler does not optimize away all multiplications with 0?).
+=#
+mutable struct RK <: AbstractIntegrator
+    lr::Float64
+    step::Integer
+    use_clipping::Bool
+    clip_norm::Float64
+    clip_val::Float64
+    # values from Butchers tableau:
+    A::Matrix{Float64}
+    B::Vector{Float64}
+    C::Vector{Float64}
 
-#     return θ, ng1[]
-# end
+    RK(;lr=0.05, step=0, use_clipping=false, clip_norm=5.0, clip_val=1.0,
+        A::Matrix{Float64}=[ # A coefficients of Butchers tableau. Default values correspond to classic RK4
+              0    0  0  0;
+            1/2    0  0  0;
+              0  1/2  0  0;
+              0    0  1  0
+        ],
+        B::Vector{Float64}=[ # b coefficients of Butchers tableau. Default values correspond to classic RK4
+            1/6,
+            1/3,
+            1/3,
+            1/6
+        ],
+        C::Vector{Float64}=[ # c coefficients of Butchers tableau. Default values correspond to classic RK4
+              0,
+            1/2,
+            1/2,
+              1
+        ]  
+    ) = if size(A)[1]==size(A)[2]==length(B)==length(C)
+        new(lr, step, use_clipping, clip_norm, clip_val, A, B, C)
+    else
+        throw(ArgumentError("Dimensionality of Butchers Tableau coefficients (A::Matrix, B::Vector and C::Vector) does not match."))
+    end
+end
 
-# Ralstons RK4 integrator structure
-# (Ralstons RK4 scheme minimizes the local truncation error for a certain type of problems)
+# generic RK integrator step function
+function (integrator::RK)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::String="IMAG"; kwargs...)
+    return generic_RK_step(integrator, θ, Oks_and_Eks_, mode; kwargs...)
+end
+
+# --------------------------------------------------------------
+# More Runge Kutta type integrators with fixed Butchers tableaus
+# --------------------------------------------------------------
+
+#= 3/8ths rule integrator structure
+    In this 4th order scheme, almost all error constants are smaller compared to the classic RK4 (with the drawback of needing more floating point operations).
+=#
+mutable struct RK4_3_8ths <: AbstractIntegrator
+    lr::Float64
+    step::Integer
+    use_clipping::Bool
+    clip_norm::Float64
+    clip_val::Float64
+    # values from Butchers tableau:
+    A::Matrix{Float64}
+    B::Vector{Float64}
+    C::Vector{Float64}
+
+    RK4_3_8ths(;lr=0.05, step=0, use_clipping=false, clip_norm=5.0, clip_val=1.0) = new(
+        lr, step, use_clipping, clip_norm, clip_val,
+        [ # A coefficients of Butchers tableau
+               0   0  0  0;
+             1/3   0  0  0;
+            -1/3   1  0  0;
+               1  -1  1  0
+        ],
+        [ # b coefficients of Butchers tableau
+            1/8,
+            3/8,
+            3/8,
+            1/8
+        ],
+        [ # c coefficients of Butchers tableau
+              0,
+            1/3,
+            2/3,
+              1
+        ] 
+    )
+end
+
+# 3/8ths rule integrator step function
+function (integrator::RK4_3_8ths)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::String="IMAG"; kwargs...)
+    return generic_RK_step(integrator, θ, Oks_and_Eks_, mode; kwargs...)
+end
+
+#= Ralstons RK4 scheme integrator structure
+    This RK4 scheme minimizes the local truncation error for a certain type of problem.
+=#
 mutable struct RK4_Ralston <: AbstractIntegrator
     lr::Float64
     step::Integer
@@ -205,40 +283,7 @@ end
 
 # Ralstons RK4 integrator step function
 function (integrator::RK4_Ralston)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::String="IMAG"; kwargs...)
-
-    θtype = eltype(θ)
-    h = integrator.lr
-    if mode=="REAL" h *= im end
-
-    # load parameters corresponding to Butchers tableau. The cs are not actually used here, as dθ/dt is not explicitly time dependent.
-    A, bs, cs = integrator.A, integrator.B, integrator.C
-
-    # needed both for intermediary evaluations and final update
-    ks = Vector{Vector{θtype}}(undef, length(bs)) # note that although typeof(θ) <: QuantumNaturalGradient.Parameters,  get_θdot returns a Vector{eltype(θ)}, and that is what will be stored in ks.
-    # first natural gradient (i.e. of the current state before updating) will be saved and later returned alongside the updated θ 
-    ng1 = Vector{NaturalGradient{θtype}}(undef, 1)
-
-    for i in eachindex(bs)
-        θ_ = deepcopy(θ)
-        for j in 1:i-1
-            @. θ_ += h * A[i,j] * ks[j]
-        end
-        ng = NaturalGradient_timeit_wrapper(θ_, Oks_and_Eks_; kwargs...)
-        ks[i] = get_θdot(ng; θtype)
-        if integrator.use_clipping clamp_and_norm!(ks[i], integrator.clip_val, integrator.clip_norm) end
-        # keep 1st natural gradient to return later
-        if i == 1
-            ng1[] = ng
-        end
-    end
-    
-    for (b,k) in zip(bs, ks)
-        @. θ += h * b * k
-    end
-
-    integrator.step += 1
-
-    return θ, ng1[]
+    return generic_RK_step(integrator, θ, Oks_and_Eks_, mode; kwargs...)
 end
 
 #=  RK45 (DOPRI5) integrator structure
@@ -293,7 +338,7 @@ end
     )
 end
 
-# RK45 (DOPRI5) integrator step function
+# RK45 integrator step function (has its own step function to include FSAL handling)
 function (integrator::RK45)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::String="IMAG"; kwargs...)
 
     θtype = eltype(θ)
@@ -342,9 +387,10 @@ function (integrator::RK45)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::St
     return θ, ng1[]
 end
 
+# For use within callback functions: function that, if requested, returns a copy of an RK45 integrator without its FSAL arrays (and without changing the preexisting struct)
 function (integrator::RK45)(; copy_without_FSAL::Bool=true)
-    if copy_without_FSAL
-        # create new integrator with same values but which does not have the FSAL arrays
+    if copy_without_FSAL && (integrator.FSAL_k !== nothing || integrator.FSAL_ng !== nothing)
+        # create new struct where the FSAL fields are nothing (as per default)
         slim_integrator = RK45(lr=integrator.lr, step=integrator.step, use_clipping=integrator.use_clipping, clip_norm=integrator.clip_norm, clip_val=integrator.clip_val)
         return slim_integrator
     else
