@@ -387,7 +387,7 @@ function (integrator::RK45)(θ::ParameterTypes, Oks_and_Eks_::Function, mode::St
     return θ, ng1[]
 end
 
-# For use within callback functions: function that, if requested, returns a copy of an RK45 integrator without its FSAL arrays (and without changing the preexisting struct)
+# For use within callback functions: function that, if requested, returns a copy of an RK45 integrator without its FSAL arrays (and without changing the preexisting struct or crating any copies of/containing the FSAL arrays)
 function (integrator::RK45)(; copy_without_FSAL::Bool=true)
     if copy_without_FSAL && (integrator.FSAL_k !== nothing || integrator.FSAL_ng !== nothing)
         # create new struct where the FSAL fields are nothing (as per default)
