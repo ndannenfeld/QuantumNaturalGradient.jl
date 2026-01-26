@@ -144,6 +144,7 @@ function evolve(Oks_and_Eks_, θ::T, mode::String="IMAG";
         flush(stdout); flush(stderr)
     end
 
+    # if gradtol has not been passed, set default values depending on evolution mode (For Imag TE, convergence is expected, while for RTE, this is generally not the case).
     if gradtol === nothing
         gradtol = (mode == "IMAG" ? 1e-10 : 0)
     end
