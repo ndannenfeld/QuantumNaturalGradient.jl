@@ -108,12 +108,11 @@ function set_rng(r)
     t.rngState3 = r[4]
 end
 
-# as of now, this wrapper has not been adapted to call evolve(Oks_and_Eks_, theta) with Real Time Evolution, i.e. the call will default to imaginary time evolution and there is no argument to choose the mode.
-function evolve(construct_mps, θ::T, H; integrator=Euler(0.1), maxiter=10, callback=(args...; kwargs...) -> nothing, 
+function evolve(construct_mps, θ::T, H, mode::String="IMAG"; integrator=Euler(0.1), maxiter=10, callback=(args...; kwargs...) -> nothing, 
     logger_funcs=[], copy=true, misc_restart=nothing, timer=TimerOutput(), kwargs...) where {T}
     
     Oks_and_Eks_ = (θ, sample_nr) -> Oks_and_Eks(θ, construct_mps, H, sample_nr; kwargs...)
-    energy, θ, misc = evolve(Oks_and_Eks_, θ; integrator, maxiter, callback, logger_funcs, copy, misc_restart, timer)
+    energy, θ, misc = evolve(Oks_and_Eks_, θ, mode; integrator, maxiter, callback, logger_funcs, copy, misc_restart, timer)
     return energy, θ, construct_mps(θ), misc
 end
 
