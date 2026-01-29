@@ -20,6 +20,7 @@ mutable struct NaturalGradient{T <: Number}
         return new{T}(samples, J, Es, logψσs, grad, θdot, tdvp_error, importance_weights, saved_properties)
     end
 end
+
 function convert_to_vector(samples::Matrix{T}) where T <: Integer
     return [Vector{T}(samples[i, :]) for i in 1:size(samples, 1)]
 end
@@ -91,7 +92,7 @@ end
 
 function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
     importance_weights=nothing, Eks_mean=nothing, Eks_var=nothing, Oks_mean=nothing,
-    solver=nothing, discard_outliers=0., timer=TimerOutput(), verbose=true, saved_properties=nothing) 
+    solver=nothing, discard_outliers=0., timer=TimerOutput(), verbose=true, saved_properties=nothing)
 
     if importance_weights !== nothing
         importance_weights ./= mean(importance_weights)
@@ -106,6 +107,7 @@ function NaturalGradient(Oks, Eks::Vector, logψσs::Vector, samples;
 
     ng = NaturalGradient(samples, J, Es, logψσs; importance_weights, saved_properties)
 
+    # if solver !== nothing, then it's a function that has been passed to the evolve function earlier (cf. min. working example: `solver = QNG.EigenSolver()`)
     if solver !== nothing
         @timeit timer "solver" solver(ng; timer)
     end
@@ -168,6 +170,15 @@ function tdvp_relative_error(J::Jacobian, Es::EnergySummary, θdot::Vector)
     Eks = centered(Es)
     relative_error = std(Eks_eff .- Eks) / (std(Eks) + 1e-10)
     return relative_error
+end
+
+function NaturalGradient_timeit_wrapper(θ, Oks_and_Eks_; kwargs...)
+    if kwargs[:timer] !== nothing
+        ng = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ, Oks_and_Eks_; kwargs...)
+    else
+        ng = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
+    end
+    return ng
 end
 
 include("outlier.jl")

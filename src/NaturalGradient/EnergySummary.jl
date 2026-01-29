@@ -115,7 +115,7 @@ function Base.show(io::IO, Es::EnergySummary)
     N_eff = effective_sample_nr(Es)
     N_eff_str = ""
     if N_eff != length(Es)
-        N_eff_str = ", Nₑ=$(round(Int, N_eff))"
+        N_eff_str = ", Nₑ=$(isnan(N_eff) ? "NaN" : round(Int, N_eff))"
     end
     print(io, "EnergySummary($E_str, $Evar_str, Nₛ=$(length(Es))$N_eff_str)")
 end

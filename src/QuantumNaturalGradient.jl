@@ -30,7 +30,6 @@ include("MPS/MPS.jl")
 include("GenericEksAndOks/GenericEksAndOks.jl")
 include("misc/misc.jl")
 
-
 include("solver/solver.jl")
 
 include("evolve/evolve.jl")
@@ -38,5 +37,12 @@ include("evolve/evolve_old.jl")
 include("remove_params.jl")
 include("init_params.jl")
 
+# warns when using or importing the package from .julia/dev
+function __init__()
+    if occursin(".julia/dev/", pathof(QuantumNaturalGradient))
+        @warn "You are currently on the .julia/dev/ version of QuantumNaturalGradient."
+        flush(stderr)
+    end
+end
 
 end # module QuantumNaturalGradient

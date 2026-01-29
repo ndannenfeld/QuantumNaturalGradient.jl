@@ -1,47 +1,4 @@
-# Abstract types and common utilities
-abstract type AbstractIntegrator end
-abstract type AbstractCompositeIntegrator <: AbstractIntegrator end
-abstract type AbstractSchedule end
-
-function Base.getproperty(integrator::AbstractCompositeIntegrator, property::Symbol)
-    if property === :lr || property === :step
-        return getproperty(integrator.integrator, property)
-    else
-        return getfield(integrator, property)
-    end
-end
-
-function clamp_and_norm!(gradients, clip_val, clip_norm)
-    clamp!(gradients, -clip_val, clip_val)
-    norm(gradients) > clip_norm ? gradients .= (gradients ./ norm(gradients)) .* clip_norm : nothing
-    return gradients
-end
-
-# Euler integrator structure
-mutable struct Euler <: AbstractIntegrator
-    lr::Float64
-    step::Integer
-    use_clipping::Bool
-    clip_norm::Float64
-    clip_val::Float64
-    Euler(;lr=0.05, step=0, use_clipping=false, clip_norm=10.0, clip_val=1.0) = new(lr, step, use_clipping, clip_norm, clip_val)
-end
-
-# Euler integrator step function
-function (integrator::Euler)(θ::ParameterTypes, Oks_and_Eks_; kwargs...)
-    if kwargs[:timer] !== nothing 
-        natural_gradient = @timeit kwargs[:timer] "NaturalGradient" NaturalGradient(θ, Oks_and_Eks_; kwargs...) 
-    else
-        natural_gradient = NaturalGradient(θ, Oks_and_Eks_; kwargs...)
-    end
-    g = get_θdot(natural_gradient; θtype=eltype(θ))
-    if integrator.use_clipping
-        clamp_and_norm!(g, integrator.clip_val, integrator.clip_norm)
-    end
-    θ .+= integrator.lr .* g
-    integrator.step += 1
-    return θ, natural_gradient
-end
+include("integrators.jl")
 
 # Initialize and manage the optimization state
 mutable struct OptimizationState
@@ -151,15 +108,15 @@ function set_rng(r)
     t.rngState3 = r[4]
 end
 
-function evolve(construct_mps, θ::T, H; integrator=Euler(0.1), maxiter=10, callback=(args...; kwargs...) -> nothing, 
+function evolve(construct_mps, θ::T, H, mode::String="IMAG"; integrator=Euler(0.1), maxiter=10, callback=(args...; kwargs...) -> nothing, 
     logger_funcs=[], copy=true, misc_restart=nothing, timer=TimerOutput(), kwargs...) where {T}
     
     Oks_and_Eks_ = (θ, sample_nr) -> Oks_and_Eks(θ, construct_mps, H, sample_nr; kwargs...)
-    energy, θ, misc = evolve(Oks_and_Eks_, θ; integrator, maxiter, callback, logger_funcs, copy, misc_restart, timer)
+    energy, θ, misc = evolve(Oks_and_Eks_, θ, mode; integrator, maxiter, callback, logger_funcs, copy, misc_restart, timer)
     return energy, θ, construct_mps(θ), misc
 end
 
-function evolve(Oks_and_Eks_, θ::T; 
+function evolve(Oks_and_Eks_, θ::T, mode::String="IMAG"; 
     integrator=Euler(0.1),
     solver=EigenSolver(1e-6),
     maxiter=10, 
@@ -171,7 +128,25 @@ function evolve(Oks_and_Eks_, θ::T;
     copy=false, 
     misc_restart=nothing, 
     discard_outliers=0.,
-    timer=TimerOutput(), gradtol=1e-10) where {T}
+    timer=TimerOutput(),
+    gradtol=nothing
+    ) where {T}
+
+    if mode != "IMAG" && mode != "REAL"
+        @warn "QuantumNaturalGradient.evolve: Unknown value for mode argument, defaulting to \"IMAG\", i.e. imaginary-time evolution. For real-time evolution choose \"REAL\"."
+        flush(stdout); flush(stderr)
+        mode = "IMAG"
+    end
+
+    if verbosity >= 1
+        @info "Evolving in $(mode == "IMAG" ? "imaginary" : "real") time"
+        flush(stdout); flush(stderr)
+    end
+
+    # if gradtol has not been passed, set default values depending on evolution mode (For Imag TE, convergence is expected, while for RTE, this is generally not the case).
+    if gradtol === nothing
+        gradtol = (mode == "IMAG" ? 1e-10 : 0)
+    end
 
     if copy
         θ = deepcopy(θ)
@@ -192,34 +167,37 @@ function evolve(Oks_and_Eks_, θ::T;
         maxiter, gradtol, verbosity
     )
 
-    return evolve!(state)
+    return evolve!(state, mode)
 end
 
-function evolve!(state::OptimizationState)
+function evolve!(state::OptimizationState, mode::String="IMAG")
     # Main optimization loop
     dynamic_kwargs = Dict()
-    while step!(state, dynamic_kwargs)
+    while step!(state, dynamic_kwargs, mode)
     end
 
     if state.verbosity >= 2
-        @info "evolve: Done"
+        @info "QuantumNaturalGradient.evolve: Done"
         show(state.timer)
+        println() # empty line after show(timer)
+        flush(stdout); flush(stderr)
     end
 
     # Collect the results
     return state.energy, state.θ, get_misc(state)
 end
 
-function step!(o::OptimizationState, dynamic_kwargs)
+function step!(o::OptimizationState, dynamic_kwargs, mode::String="IMAG")
 
-    if o.niter-1 >= o.maxiter
+    if o.niter > o.maxiter
         if o.verbosity >= 1
-            @info "$(typeof(o.integrator)): Maximum number of iterations reached ($(o.niter))"
+            @info "$(typeof(o.integrator)): Maximum number of iterations completed ($(o.niter-1))"
+            flush(stdout); flush(stderr)
         end
         return false
     end
 
-    o.θ, natural_gradient = @timeit o.timer "integrator" o.integrator(o.θ, o.Oks_and_Eks; sample_nr=o.sample_nr, solver=o.solver, discard_outliers=o.discard_outliers, timer=o.timer, dynamic_kwargs...)
+    o.θ, natural_gradient = @timeit o.timer "integrator" o.integrator(o.θ, o.Oks_and_Eks, mode; sample_nr=o.sample_nr, solver=o.solver, discard_outliers=o.discard_outliers, timer=o.timer, dynamic_kwargs...)
     
     # Transform the optimization state and natural_gradient
     natural_gradient = o.transform!(o, natural_gradient)
@@ -236,17 +214,19 @@ function step!(o::OptimizationState, dynamic_kwargs)
 
     if o.verbosity >= 2
         @info "iter $(o.niter): $(natural_gradient.Es), ‖θdot‖ = $(norm_natgrad), ‖θ‖ = $(norm_θ), tdvp_error = $(natural_gradient.tdvp_error)"
-        flush(stdout)
-        flush(stderr)
+        flush(stdout); flush(stderr)
     end
     
     if stop === false
+        @info "QuantumNaturalGradient.evolve: Callback function has returned false (after $(o.niter) iteration$(o.niter > 1 ? "s" : ""))"
+        flush(stdout); flush(stderr)
         return false
     end
 
     if norm_natgrad < o.gradtol
         if o.verbosity >= 1
-            @info "$(typeof(o.integrator)): Gradient tolerance reached"
+            @info "$(typeof(o.integrator)): Gradient tolerance reached (after $(o.niter) iteration$(o.niter > 1 ? "s" : ""))"
+            flush(stdout); flush(stderr)
         end
         return false
     end
